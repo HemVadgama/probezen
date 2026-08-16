@@ -50,3 +50,35 @@ def test_config_does_not_contain_resolved_secret(tmp_path, monkeypatch):
     endpoint = load_endpoint(tmp_path, "x")
     resolve_headers(endpoint)
     assert "private-value" not in (tmp_path / "driftlock.yml").read_text()
+
+
+def test_literal_credential_header_in_manual_config_is_rejected():
+    endpoint = Endpoint(
+        "x",
+        "https://example.test",
+        headers={"X-Access-Token": "must-not-be-persisted"},
+    )
+    with pytest.raises(ConfigError, match="environment variable") as error:
+        resolve_headers(endpoint)
+    assert "must-not-be-persisted" not in str(error.value)
+
+
+@pytest.mark.parametrize(
+    "field,value,message",
+    [
+        ("expected_status", 99, "expected_status"),
+        ("timeout_seconds", 0, "timeout_seconds"),
+        ("max_response_bytes", 0, "max_response_bytes"),
+        ("description", 123, "description"),
+        ("headers", {"Authorization": {"env": ""}}, "environment variable"),
+    ],
+)
+def test_endpoint_bounds_are_validated(tmp_path, field, value, message):
+    from driftlock.config import load_endpoint, save_config
+
+    save_config(
+        tmp_path,
+        {"version": 1, "checks": {"x": {"url": "https://example.test", field: value}}},
+    )
+    with pytest.raises(ConfigError, match=message):
+        load_endpoint(tmp_path, "x")

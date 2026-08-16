@@ -38,6 +38,7 @@ uv run driftlock --help
 ```bash
 driftlock init
 driftlock add github-user https://api.github.com/users/octocat
+driftlock list
 driftlock sample github-user --count 5 --interval 1
 driftlock infer github-user
 driftlock approve github-user --all
@@ -63,6 +64,8 @@ can produce required-field, stable-type, non-null, small-enum, and nonempty-arra
 reports `products[].price` as a breaking type change and `products[].status` as a warning for an unfamiliar enum value. `{"products": []}` warns that a historically nonempty array is empty. New fields are not breaking.
 
 Run `driftlock check NAME --json` for stable machine output, or `driftlock check --all` in CI. Exit codes are `0` healthy, `1` contract violation, and `2` configuration/network/Driftlock failure. Warnings alone do not fail a check.
+
+Use `driftlock validate` to catch malformed configuration, missing environment variables, or missing approved contracts without making an HTTP request. Teams that want warnings to fail CI can run `driftlock check --all --warnings-as-errors`.
 
 ## How inference works
 
@@ -107,9 +110,20 @@ checks:
 
 Environment variables are resolved only for the request and are never logged or persisted. Missing variables fail clearly without exposing values. Do not put literal credentials in configuration. Users are responsible for having permission to query configured APIs.
 
+The same secure setup can be created without editing YAML:
+
+```bash
+driftlock add vendor https://api.example.com/v1/items \
+  --header-env Authorization=VENDOR_TOKEN \
+  --header Accept=application/json \
+  --query locale=en
+```
+
+Credential-like headers such as `Authorization`, `Cookie`, and `X-API-Key` are rejected by `--header`; use `--header-env` so only the environment variable name is persisted.
+
 ## Configuration
 
-Each check supports `url`, `method: GET`, `expected_status`, `headers`, `query`, `timeout_seconds`, `max_response_bytes` (default 2 MiB), and `description`. Requests use explicit timeouts, TLS verification, `Driftlock/0.1`, no retries, and no redirect following. Non-JSON endpoints retain HTTP metadata but do not receive structural inference.
+Each check supports `url`, `method: GET`, `expected_status`, `headers`, `query`, `timeout_seconds`, `max_response_bytes` (default 2 MiB), and `description`. The repeatable `--header`, `--header-env`, and `--query` flags cover common integrations directly from the CLI. `driftlock list` shows each endpoint's observation and approved-rule counts. Requests use explicit timeouts, TLS verification, `Driftlock/0.1`, no retries, and no redirect following. Non-JSON endpoints retain HTTP metadata but do not receive structural inference.
 
 ## Design philosophy
 
