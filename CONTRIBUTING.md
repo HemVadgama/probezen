@@ -1,6 +1,6 @@
 # Contributing
 
-Thank you for helping make Driftlock quieter and more trustworthy.
+Thank you for helping make Probezen quieter and more trustworthy.
 
 1. Create a focused branch and test deterministic behavior without external services.
 2. Run `uv sync --extra dev`, `uv run ruff format --check .`, `uv run ruff check .`, `uv run mypy src`, `uv run pytest`, and `uv build`.

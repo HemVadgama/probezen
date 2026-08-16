@@ -29,7 +29,7 @@ def print_candidates(name: str, candidates: list[Candidate]) -> None:
 
 
 def print_check(name: str, observation: Observation, findings: list[Finding]) -> None:
-    console.print(f"[bold]Driftlock · {name}[/bold]\n")
+    console.print(f"[bold]Probezen · {name}[/bold]\n")
     breaking = [item for item in findings if item.severity == "breaking"]
     warnings = [item for item in findings if item.severity == "warning"]
     if not findings:

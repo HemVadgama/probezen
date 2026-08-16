@@ -4,7 +4,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from typer.testing import CliRunner
 
-from driftlock.cli import app
+from probezen.cli import app
 
 runner = CliRunner()
 
@@ -55,7 +55,7 @@ def test_complete_cli_workflow(tmp_path, monkeypatch):
         assert runner.invoke(app, ["sample", "demo", "--count", "10"]).exit_code == 0
         assert Handler.last_path.endswith("?locale=en")
         assert Handler.last_token == "runtime-secret"
-        config_text = (tmp_path / "driftlock.yml").read_text()
+        config_text = (tmp_path / "probezen.yml").read_text()
         assert "VENDOR_TOKEN" in config_text
         assert "runtime-secret" not in config_text
         inferred = runner.invoke(app, ["infer", "demo"]).stdout

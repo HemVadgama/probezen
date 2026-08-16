@@ -1,4 +1,4 @@
-.driftlock/
+.probezen/
 .env
 .env.*
 *.sqlite3

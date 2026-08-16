@@ -33,7 +33,7 @@ console = Console(stderr=True)
 
 def version_callback(value: bool) -> None:
     if value:
-        typer.echo(f"driftlock {__version__}")
+        typer.echo(f"probezen {__version__}")
         raise typer.Exit()
 
 
@@ -49,9 +49,9 @@ def main(
 
 @app.command()
 def init() -> None:
-    """Initialize Driftlock in the current repository."""
+    """Initialize Probezen in the current repository."""
     root = Path.cwd()
-    config = root / "driftlock.yml"
+    config = root / "probezen.yml"
     if not config.exists():
         save_config(root, {"version": 1, "checks": {}})
     if not lock_path(root).exists():
@@ -60,7 +60,7 @@ def init() -> None:
     ignore = root / ".gitignore"
     existing = ignore.read_text() if ignore.exists() else ""
     additions = [
-        item for item in (".driftlock/", ".env", "*.sqlite3") if item not in existing.splitlines()
+        item for item in (".probezen/", ".env", "*.sqlite3") if item not in existing.splitlines()
     ]
     if additions:
         ignore.write_text(
@@ -69,7 +69,7 @@ def init() -> None:
             + "\n".join(additions)
             + "\n"
         )
-    typer.echo("Initialized Driftlock: driftlock.yml, driftlock.lock.json, .driftlock/")
+    typer.echo("Initialized Probezen: probezen.yml, probezen.lock.json, .probezen/")
 
 
 @app.command("add")
@@ -99,7 +99,7 @@ def add_check(
         typer.Option(min=1, help="Maximum response size in bytes."),
     ] = 2 * 1024 * 1024,
 ) -> None:
-    """Add a JSON GET endpoint to driftlock.yml."""
+    """Add a JSON GET endpoint to probezen.yml."""
     root = Path.cwd()
     if not re.fullmatch(r"[a-zA-Z0-9][a-zA-Z0-9_-]*", name):
         fail("Check names may contain letters, numbers, underscores, and hyphens")
@@ -173,9 +173,9 @@ def list_checks(
             typer.echo(json.dumps({"checks": rows}, sort_keys=True))
             return
         if not rows:
-            typer.echo("No checks configured. Add one with 'driftlock add NAME URL'.")
+            typer.echo("No checks configured. Add one with 'probezen add NAME URL'.")
             return
-        table = Table(title="Driftlock checks")
+        table = Table(title="Probezen checks")
         for heading in ("Name", "URL", "Samples", "Approved rules"):
             table.add_column(heading)
         for row in rows:
@@ -269,7 +269,7 @@ def approve(
         if not candidates:
             fail("No candidates available; collect at least 3 consistent observations")
         if not all_rules and not candidate:
-            fail("Choose --all or one or more --candidate IDs (shown by 'driftlock infer')")
+            fail("Choose --all or one or more --candidate IDs (shown by 'probezen infer')")
         selected = (
             candidates
             if all_rules

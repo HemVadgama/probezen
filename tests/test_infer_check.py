@@ -1,7 +1,7 @@
-from driftlock.check import enforce
-from driftlock.infer import infer_candidates
-from driftlock.models import Observation
-from driftlock.paths import traverse
+from probezen.check import enforce
+from probezen.infer import infer_candidates
+from probezen.models import Observation
+from probezen.paths import traverse
 
 
 def observation(body, *, status=200, content_type="application/json"):

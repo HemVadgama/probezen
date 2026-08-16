@@ -38,21 +38,21 @@ class Endpoint:
 
 
 def config_path(root: Path) -> Path:
-    return root / "driftlock.yml"
+    return root / "probezen.yml"
 
 
 def load_config(root: Path) -> dict[str, Any]:
     path = config_path(root)
     if not path.exists():
-        raise ConfigError("driftlock.yml not found; run 'driftlock init' first")
+        raise ConfigError("probezen.yml not found; run 'probezen init' first")
     try:
         data = yaml.safe_load(path.read_text())
     except (OSError, yaml.YAMLError) as exc:
-        raise ConfigError(f"Could not read driftlock.yml: {exc}") from exc
+        raise ConfigError(f"Could not read probezen.yml: {exc}") from exc
     if not isinstance(data, dict) or data.get("version") != 1:
-        raise ConfigError("driftlock.yml must be a mapping with version: 1")
+        raise ConfigError("probezen.yml must be a mapping with version: 1")
     if not isinstance(data.get("checks", {}), dict):
-        raise ConfigError("driftlock.yml 'checks' must be a mapping")
+        raise ConfigError("probezen.yml 'checks' must be a mapping")
     return data
 
 
@@ -75,7 +75,7 @@ def load_endpoint(root: Path, name: str) -> Endpoint:
         raise ConfigError(f"Check '{name}' must have an http(s) URL")
     method = str(raw.get("method", "GET")).upper()
     if method != "GET":
-        raise ConfigError("Driftlock v0.1 supports GET endpoints only")
+        raise ConfigError("Probezen v0.1 supports GET endpoints only")
     try:
         endpoint = Endpoint(
             name=name,
@@ -113,7 +113,7 @@ def load_endpoint(root: Path, name: str) -> Endpoint:
 
 
 def resolve_headers(endpoint: Endpoint) -> dict[str, str]:
-    resolved = {"User-Agent": "Driftlock/0.1"}
+    resolved = {"User-Agent": "Probezen/0.1"}
     for name, value in endpoint.headers.items():
         if isinstance(value, str):
             if is_credential_header(name):

@@ -12,7 +12,7 @@ class ContractError(Exception):
 
 
 def lock_path(root: Path) -> Path:
-    return root / "driftlock.lock.json"
+    return root / "probezen.lock.json"
 
 
 def load_lock(root: Path) -> dict[str, Any]:
@@ -22,13 +22,13 @@ def load_lock(root: Path) -> dict[str, Any]:
     try:
         data = json.loads(path.read_text())
     except (OSError, json.JSONDecodeError) as exc:
-        raise ContractError(f"Could not read driftlock.lock.json: {exc}") from exc
+        raise ContractError(f"Could not read probezen.lock.json: {exc}") from exc
     if (
         not isinstance(data, dict)
         or data.get("version") != 1
         or not isinstance(data.get("contracts"), dict)
     ):
-        raise ContractError("driftlock.lock.json must contain version 1 and contracts")
+        raise ContractError("probezen.lock.json must contain version 1 and contracts")
     return data
 
 
@@ -44,6 +44,6 @@ def load_rules(root: Path, name: str) -> list[dict[str, Any]]:
     contract = load_lock(root)["contracts"].get(name)
     if not isinstance(contract, dict) or not isinstance(contract.get("rules"), list):
         raise ContractError(
-            f"No approved contract for '{name}'; run 'driftlock approve {name} --all'"
+            f"No approved contract for '{name}'; run 'probezen approve {name} --all'"
         )
     return list(contract["rules"])

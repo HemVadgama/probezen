@@ -1,8 +1,8 @@
 import httpx
 import pytest
 
-from driftlock.config import ConfigError, Endpoint, resolve_headers
-from driftlock.http import RequestError, fetch, normalize_content_type
+from probezen.config import ConfigError, Endpoint, resolve_headers
+from probezen.http import RequestError, fetch, normalize_content_type
 
 
 def test_env_header_resolution_and_missing_secret(monkeypatch):
@@ -35,7 +35,7 @@ def test_fetch_malformed_json_network_and_size(monkeypatch):
 
 
 def test_config_does_not_contain_resolved_secret(tmp_path, monkeypatch):
-    from driftlock.config import load_endpoint, save_config
+    from probezen.config import load_endpoint, save_config
 
     save_config(
         tmp_path,
@@ -49,7 +49,7 @@ def test_config_does_not_contain_resolved_secret(tmp_path, monkeypatch):
     monkeypatch.setenv("TOKEN", "private-value")
     endpoint = load_endpoint(tmp_path, "x")
     resolve_headers(endpoint)
-    assert "private-value" not in (tmp_path / "driftlock.yml").read_text()
+    assert "private-value" not in (tmp_path / "probezen.yml").read_text()
 
 
 def test_literal_credential_header_in_manual_config_is_rejected():
@@ -74,7 +74,7 @@ def test_literal_credential_header_in_manual_config_is_rejected():
     ],
 )
 def test_endpoint_bounds_are_validated(tmp_path, field, value, message):
-    from driftlock.config import load_endpoint, save_config
+    from probezen.config import load_endpoint, save_config
 
     save_config(
         tmp_path,

@@ -13,7 +13,7 @@ class StorageError(Exception):
 
 
 def database_path(root: Path) -> Path:
-    return root / ".driftlock" / "history.sqlite3"
+    return root / ".probezen" / "history.sqlite3"
 
 
 def connect(root: Path) -> sqlite3.Connection:

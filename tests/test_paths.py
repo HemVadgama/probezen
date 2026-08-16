@@ -1,6 +1,6 @@
 import pytest
 
-from driftlock.paths import json_type, traverse
+from probezen.paths import json_type, traverse
 
 
 def as_map(value: object):
