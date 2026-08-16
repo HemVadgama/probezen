@@ -23,7 +23,7 @@ Driftlock is a local-first CLI that learns conservative, deterministic invariant
 Python 3.12+ is required. With [uv](https://docs.astral.sh/uv/):
 
 ```bash
-uv tool install git+https://github.com/<owner>/driftlock
+uv tool install git+https://github.com/HemVadgama/driftlock
 ```
 
 From a clone:
@@ -80,7 +80,7 @@ Inference is evidence, not activation. `infer` shows candidate IDs, counts, conf
 
 ```yaml
 - name: Install Driftlock
-  run: uv tool install git+https://github.com/<owner>/driftlock
+  run: uv tool install git+https://github.com/HemVadgama/driftlock
 - name: Check external contracts
   env:
     VENDOR_TOKEN: ${{ secrets.VENDOR_TOKEN }}
