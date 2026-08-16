@@ -1,0 +1,11 @@
+version: 1
+checks:
+  github-user:
+    url: https://api.github.com/user
+    method: GET
+    expected_status: 200
+    headers:
+      Authorization:
+        env: GITHUB_TOKEN
+    timeout_seconds: 10
+
