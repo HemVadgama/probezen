@@ -34,7 +34,9 @@ def test_complete_cli_workflow(tmp_path, monkeypatch):
         assert runner.invoke(app, ["init"]).exit_code == 0
         assert runner.invoke(app, ["add", "demo", url]).exit_code == 0
         assert runner.invoke(app, ["sample", "demo", "--count", "10"]).exit_code == 0
-        assert "Candidate invariants" in runner.invoke(app, ["infer", "demo"]).stdout
+        inferred = runner.invoke(app, ["infer", "demo"]).stdout
+        assert "Candidate invariants" in inferred
+        assert "[c001]" in inferred
         assert runner.invoke(app, ["approve", "demo", "--all"]).exit_code == 0
         healthy = runner.invoke(app, ["check", "demo", "--json"])
         assert healthy.exit_code == 0

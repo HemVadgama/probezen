@@ -21,7 +21,7 @@ def print_candidates(name: str, candidates: list[Candidate]) -> None:
         else:
             expected = f" = {expected}"
         console.print(
-            f"[{candidate.id}] [bold]{candidate.rule.upper()}[/bold]  {candidate.path}{expected}"
+            f"\\[{candidate.id}] [bold]{candidate.rule.upper()}[/bold]  {candidate.path}{expected}"
         )
         console.print(
             f"    Evidence: {candidate.explanation} ({candidate.confidence:.0%} confidence)\n"
