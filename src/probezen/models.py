@@ -49,6 +49,11 @@ class Finding:
     expected: Any
     actual: Any
     message: str = field(default="")
+    level: Literal["info", "low", "medium", "high", "critical"] = "medium"
+    confidence: Literal["low", "medium", "high"] = "high"
+    affected_code: tuple[dict[str, Any], ...] = ()
+    reason: str = ""
+    suggested_action: str = "Inspect the dependency response and affected application code."
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

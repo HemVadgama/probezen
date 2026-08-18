@@ -36,3 +36,18 @@ def test_deep_structure_is_deterministic_and_missing_is_absent():
 def test_non_json_python_value_is_rejected():
     with pytest.raises(TypeError):
         traverse({"bad": {1, 2}})
+
+
+def test_sensitive_values_are_never_retained():
+    metrics = as_map(
+        {
+            "token": "live-secret",
+            "profile": {"email": "person@example.com", "state": "active"},
+        }
+    )
+    assert metrics["token"].types == ("string",)
+    assert metrics["token"].values == ()
+    configured = {
+        item.path: item for item in traverse({"profile": {"email": "private"}}, ("profile.email",))
+    }
+    assert configured["profile.email"].values == ()

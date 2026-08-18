@@ -1,0 +1,8 @@
+{
+  "name": "probezen-typescript-example",
+  "private": true,
+  "dependencies": {
+    "openai": "^6.0.0",
+    "stripe": "^18.0.0"
+  }
+}

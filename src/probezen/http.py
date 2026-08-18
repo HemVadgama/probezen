@@ -54,5 +54,5 @@ def fetch(endpoint: Endpoint) -> Observation:
             parsed: Any = json.loads(body)
         except (json.JSONDecodeError, UnicodeDecodeError) as exc:
             raise RequestError("Response declared JSON but was malformed") from exc
-        paths = traverse(parsed)
+        paths = traverse(parsed, endpoint.sensitive_paths)
     return Observation(response.status_code, content_type, latency, size, is_json, paths)

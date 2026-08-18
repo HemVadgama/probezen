@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import fnmatch
 from typing import Any
 
 from .models import Finding, Observation
@@ -9,6 +10,7 @@ def enforce(
     observation: Observation,
     rules: list[dict[str, Any]],
     expected_status: int | None = None,
+    ignore_paths: tuple[str, ...] = (),
 ) -> list[Finding]:
     findings: list[Finding] = []
     metrics = {metric.path: metric for metric in observation.paths}
@@ -80,4 +82,31 @@ def enforce(
             and metric.array_length == 0
         ):
             findings.append(Finding("warning", "empty_array", path, "nonempty", 0))
-    return sorted(findings, key=lambda item: (item.severity, item.path, item.kind))
+        elif kind == "latency" and observation.latency_ms > float(expected["warn_above_ms"]):
+            findings.append(
+                Finding(
+                    "warning",
+                    "latency_increase",
+                    path,
+                    f"≤ {expected['warn_above_ms']:g} ms",
+                    f"{observation.latency_ms:.1f} ms",
+                )
+            )
+        elif kind == "response_size" and observation.response_bytes > int(
+            expected["warn_above_bytes"]
+        ):
+            findings.append(
+                Finding(
+                    "warning",
+                    "payload_size_increase",
+                    path,
+                    f"≤ {expected['warn_above_bytes']} bytes",
+                    f"{observation.response_bytes} bytes",
+                )
+            )
+    visible = [
+        finding
+        for finding in findings
+        if not any(fnmatch.fnmatch(finding.path, pattern) for pattern in ignore_paths)
+    ]
+    return sorted(visible, key=lambda item: (item.severity, item.path, item.kind))

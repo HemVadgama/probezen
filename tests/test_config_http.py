@@ -34,6 +34,52 @@ def test_fetch_malformed_json_network_and_size(monkeypatch):
         fetch(Endpoint("x", "https://example.test"))
 
 
+def test_fetch_rejects_oversized_response(monkeypatch):
+    def large(request):
+        return httpx.Response(
+            200, headers={"content-type": "application/json"}, content=b'{"value":"large"}'
+        )
+
+    monkeypatch.setattr(
+        httpx,
+        "stream",
+        lambda *a, **k: httpx.Client(transport=httpx.MockTransport(large)).stream(*a, **k),
+    )
+    with pytest.raises(RequestError, match="maximum size"):
+        fetch(Endpoint("x", "https://example.test", max_response_bytes=5))
+
+
+def test_fetch_sanitizes_timeout_error_and_redacts_response_values(monkeypatch):
+    def timed_out(request):
+        raise httpx.ReadTimeout("secret-bearing detail", request=request)
+
+    monkeypatch.setattr(
+        httpx,
+        "stream",
+        lambda *a, **k: httpx.Client(transport=httpx.MockTransport(timed_out)).stream(*a, **k),
+    )
+    with pytest.raises(RequestError, match="ReadTimeout") as error:
+        fetch(Endpoint("x", "https://example.test"))
+    assert "secret-bearing" not in str(error.value)
+
+    def response(request):
+        return httpx.Response(
+            200,
+            headers={"content-type": "application/json"},
+            json={"token": "secret", "customer": {"email": "private@example.com"}},
+        )
+
+    monkeypatch.setattr(
+        httpx,
+        "stream",
+        lambda *a, **k: httpx.Client(transport=httpx.MockTransport(response)).stream(*a, **k),
+    )
+    observation = fetch(Endpoint("x", "https://example.test", sensitive_paths=("customer.email",)))
+    metrics = {item.path: item for item in observation.paths}
+    assert metrics["token"].values == ()
+    assert metrics["customer.email"].values == ()
+
+
 def test_config_does_not_contain_resolved_secret(tmp_path, monkeypatch):
     from probezen.config import load_endpoint, save_config
 
@@ -71,6 +117,8 @@ def test_literal_credential_header_in_manual_config_is_rejected():
         ("max_response_bytes", 0, "max_response_bytes"),
         ("description", 123, "description"),
         ("headers", {"Authorization": {"env": ""}}, "environment variable"),
+        ("sensitive_paths", "not-a-list", "sensitive_paths"),
+        ("ignore_paths", "not-a-list", "ignore_paths"),
     ],
 )
 def test_endpoint_bounds_are_validated(tmp_path, field, value, message):

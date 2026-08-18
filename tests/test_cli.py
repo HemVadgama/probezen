@@ -31,6 +31,12 @@ class Handler(BaseHTTPRequestHandler):
 def test_complete_cli_workflow(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("VENDOR_TOKEN", "runtime-secret")
+    source = tmp_path / "src" / "checkout.ts"
+    source.parent.mkdir()
+    source.write_text(
+        'fetch("https://api.vendor.example/v1/products");\n'
+        "const total = response.products.price * quantity;\n"
+    )
     server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
@@ -43,6 +49,8 @@ def test_complete_cli_workflow(tmp_path, monkeypatch):
                 "add",
                 "demo",
                 url,
+                "--dependency",
+                "api-vendor-example",
                 "--header",
                 "Accept=application/json",
                 "--header-env",
@@ -58,6 +66,7 @@ def test_complete_cli_workflow(tmp_path, monkeypatch):
         config_text = (tmp_path / "probezen.yml").read_text()
         assert "VENDOR_TOKEN" in config_text
         assert "runtime-secret" not in config_text
+        assert "monitoring: configured" in config_text
         inferred = runner.invoke(app, ["infer", "demo"]).stdout
         assert "Candidate invariants" in inferred
         assert "[c001]" in inferred
@@ -75,7 +84,9 @@ def test_complete_cli_workflow(tmp_path, monkeypatch):
         changed = runner.invoke(app, ["check", "demo", "--json"])
         assert changed.exit_code == 1
         result = json.loads(changed.stdout)
-        assert any(item["kind"] == "type_change" for item in result["violations"])
+        type_change = next(item for item in result["violations"] if item["kind"] == "type_change")
+        assert type_change["level"] == "high"
+        assert type_change["affected_code"][0]["path"] == "src/checkout.ts"
         assert any(item["kind"] == "enum_expansion" for item in result["warnings"])
 
         Handler.body = {"products": [{"id": "p1", "price": 20, "status": "ACTIVE"}]}
@@ -96,7 +107,7 @@ def test_complete_cli_workflow(tmp_path, monkeypatch):
 
 def test_version_and_usage_errors(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
-    assert "0.1.0" in runner.invoke(app, ["--version"]).stdout
+    assert "0.2.0" in runner.invoke(app, ["--version"]).stdout
     assert runner.invoke(app, ["check", "--json"]).exit_code == 2
 
 
@@ -133,3 +144,37 @@ def test_validate_reports_missing_environment_variable_without_value(tmp_path, m
     validated = runner.invoke(app, ["validate", "--json"])
     assert validated.exit_code == 2
     assert "ABSENT_TOKEN" in validated.stdout
+
+
+def test_beginner_discovery_doctor_scan_and_status(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    source = tmp_path / "src" / "payments"
+    source.mkdir(parents=True)
+    (tmp_path / "package.json").write_text('{"dependencies":{"stripe":"^18.0.0"}}')
+    (source / "client.ts").write_text(
+        """import Stripe from "stripe";
+const response = await fetch("https://api.stripe.com/v1/prices");
+const total = response.price * 2;
+response.customer.email.toLowerCase();
+"""
+    )
+    initialized = runner.invoke(app, ["init"])
+    assert initialized.exit_code == 0
+    assert "Stripe" in initialized.stdout
+    config = (tmp_path / "probezen.yml").read_text()
+    assert "api.stripe.com" in config
+    doctor = runner.invoke(app, ["doctor", "--json"])
+    report = json.loads(doctor.stdout)
+    assert report["dependencies_analyzed"] == 1
+    assert report["dependencies"][0]["risk"] == "high"
+    assert report["dependencies"][0]["usages"][0]["path"] == "src/payments/client.ts"
+    scanned = runner.invoke(app, ["scan", "--json", "--no-write"])
+    assert json.loads(scanned.stdout)["ecosystem"] == "TypeScript / Node.js"
+    status = json.loads(runner.invoke(app, ["status", "--json"]).stdout)
+    assert status == {
+        "baselined_endpoints": 0,
+        "dependencies": 1,
+        "monitored_endpoints": 0,
+        "schema_version": 1,
+        "unbaselined_endpoints": 0,
+    }

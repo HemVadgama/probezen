@@ -35,6 +35,9 @@ class Endpoint:
     timeout_seconds: float = 10.0
     max_response_bytes: int = 2 * 1024 * 1024
     description: str | None = None
+    dependency: str | None = None
+    sensitive_paths: tuple[str, ...] = ()
+    ignore_paths: tuple[str, ...] = ()
 
 
 def config_path(root: Path) -> Path:
@@ -53,6 +56,8 @@ def load_config(root: Path) -> dict[str, Any]:
         raise ConfigError("probezen.yml must be a mapping with version: 1")
     if not isinstance(data.get("checks", {}), dict):
         raise ConfigError("probezen.yml 'checks' must be a mapping")
+    if not isinstance(data.get("dependencies", {}), dict):
+        raise ConfigError("probezen.yml 'dependencies' must be a mapping")
     return data
 
 
@@ -75,7 +80,7 @@ def load_endpoint(root: Path, name: str) -> Endpoint:
         raise ConfigError(f"Check '{name}' must have an http(s) URL")
     method = str(raw.get("method", "GET")).upper()
     if method != "GET":
-        raise ConfigError("Probezen v0.1 supports GET endpoints only")
+        raise ConfigError("Probezen currently supports GET endpoints only")
     try:
         endpoint = Endpoint(
             name=name,
@@ -87,6 +92,9 @@ def load_endpoint(root: Path, name: str) -> Endpoint:
             timeout_seconds=float(raw.get("timeout_seconds", 10)),
             max_response_bytes=int(raw.get("max_response_bytes", 2 * 1024 * 1024)),
             description=raw.get("description"),
+            dependency=raw.get("dependency"),
+            sensitive_paths=tuple(str(value) for value in raw.get("sensitive_paths", [])),
+            ignore_paths=tuple(str(value) for value in raw.get("ignore_paths", [])),
         )
         if not 100 <= endpoint.expected_status <= 599:
             raise ConfigError(f"Check '{name}' expected_status must be between 100 and 599")
@@ -96,6 +104,12 @@ def load_endpoint(root: Path, name: str) -> Endpoint:
             raise ConfigError(f"Check '{name}' max_response_bytes must be positive")
         if endpoint.description is not None and not isinstance(endpoint.description, str):
             raise ConfigError(f"Check '{name}' description must be a string")
+        if endpoint.dependency is not None and not isinstance(endpoint.dependency, str):
+            raise ConfigError(f"Check '{name}' dependency must be a string")
+        if not isinstance(raw.get("sensitive_paths", []), list):
+            raise ConfigError(f"Check '{name}' sensitive_paths must be a list")
+        if not isinstance(raw.get("ignore_paths", []), list):
+            raise ConfigError(f"Check '{name}' ignore_paths must be a list")
         for header_name, header_value in endpoint.headers.items():
             if not isinstance(header_name, str) or not header_name.strip():
                 raise ConfigError(f"Check '{name}' contains an invalid header name")
@@ -113,7 +127,9 @@ def load_endpoint(root: Path, name: str) -> Endpoint:
 
 
 def resolve_headers(endpoint: Endpoint) -> dict[str, str]:
-    resolved = {"User-Agent": "Probezen/0.1"}
+    from . import __version__
+
+    resolved = {"User-Agent": f"Probezen/{__version__}"}
     for name, value in endpoint.headers.items():
         if isinstance(value, str):
             if is_credential_header(name):

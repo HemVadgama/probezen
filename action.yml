@@ -1,0 +1,25 @@
+name: Probezen dependency reliability
+description: Detect approved external API behavior changes that could break your application
+inputs:
+  warnings-as-errors:
+    description: Fail when warnings are detected
+    required: false
+    default: "false"
+runs:
+  using: composite
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+    - name: Install Probezen
+      shell: bash
+      run: python -m pip install "${{ github.action_path }}"
+    - name: Validate Probezen configuration
+      shell: bash
+      run: probezen validate
+    - name: Check dependency behavior
+      shell: bash
+      run: >-
+        probezen check
+        ${{ inputs.warnings-as-errors == 'true' && '--warnings-as-errors' || '' }}

@@ -76,3 +76,27 @@ def test_explicit_expected_status_is_enforced_without_inferred_status_rule():
     assert [(item.kind, item.expected, item.actual) for item in findings] == [
         ("status_change", 200, 201)
     ]
+
+
+def test_operational_signals_require_more_evidence_and_use_wide_thresholds():
+    baseline = [
+        Observation(200, "application/json", 100, 1000, True, traverse({"ok": True}))
+        for _ in range(10)
+    ]
+    rules = rules_for(baseline)
+    by_kind = {item["rule"]: item for item in rules}
+    assert by_kind["latency"]["expected"] == {"warn_above_ms": 1000.0}
+    assert by_kind["response_size"]["expected"] == {"warn_above_bytes": 1024 * 1024}
+    current = Observation(
+        200, "application/json", 4100, 2 * 1024 * 1024, True, traverse({"ok": True})
+    )
+    kinds = {item.kind for item in enforce(current, rules)}
+    assert {"latency_increase", "payload_size_increase"} <= kinds
+
+
+def test_ignore_path_globs_suppress_only_matching_findings():
+    baseline = [observation({"profile": {"email": "x", "age": 20}}) for _ in range(3)]
+    current = observation({"profile": {"email": None, "age": "20"}})
+    findings = enforce(current, rules_for(baseline), ignore_paths=("profile.email",))
+    assert not any(item.path == "profile.email" for item in findings)
+    assert any(item.path == "profile.age" for item in findings)

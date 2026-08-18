@@ -1,142 +1,214 @@
 # Probezen
 
-**Detect behavioral drift in third-party APIs before it breaks your application.**
+**Your dependencies can break without going down.**
 
-Your uptime monitor sees:
+An API can keep returning `200 OK` while changing a field, returning `null`, introducing an
+enum value, slowing down, or producing a much larger payload. Probezen finds the external APIs
+your application uses and warns when their behavior changes in ways that could affect your code.
+
+Uptime monitoring tells you whether an API is online. Probezen tells you whether it still works
+for your application.
 
 ```text
-200 OK
+HIGH — Dependency behavior changed
+
+  products[].price
+
+  Previously: number
+  Now:        string
+
+  Likely affected:
+  src/cart/calculateTotal.ts:42
+    const total = response.price * quantity
+
+  Reason: Used in arithmetic.
+  Confidence: high
 ```
 
-Probezen sees:
+Probezen is deterministic, local-first, and does not require an account, hosted service, or AI.
 
-```text
-products[].price   integer → string
-products[]         historically nonempty → empty
-status             new value "suspended"
-```
-
-Probezen is a local-first CLI that learns conservative, deterministic invariants from ordinary JSON API responses. You review and approve those candidates into a commit-friendly contract; later checks explain meaningful drift and return a CI-ready exit code.
-
-## Installation
+## Install
 
 Python 3.12+ is required. With [uv](https://docs.astral.sh/uv/):
 
 ```bash
 uv tool install git+https://github.com/HemVadgama/probezen
+probezen --version
 ```
 
-From a clone:
+From a clone, the verified development workflow is:
 
 ```bash
 uv sync --extra dev
 uv run probezen --help
 ```
 
-## 60-second quickstart
+## Start with your application
 
 ```bash
 probezen init
-probezen add github-user https://api.github.com/users/octocat
-probezen list
-probezen sample github-user --count 5 --interval 1
-probezen infer github-user
-probezen approve github-user --all
-probezen check github-user
+probezen doctor
+probezen scan
+probezen check
 ```
 
-`init` creates `probezen.yml`, `probezen.lock.json`, and an ignored `.probezen/history.sqlite3`. Commit the YAML and lock file; never commit runtime history.
+`init` safely scans JavaScript and TypeScript source—it never imports or executes application
+code. It detects literal HTTP URLs, known SDK imports, and URL environment variables whose safe
+example values appear in `.env.example`, `.env.sample`, or `.env.template`. It writes a
+human-readable dependency inventory to `probezen.yml`.
 
-## Example
+`doctor` provides value immediately, before monitoring history exists. It reports dependency risk
+and conservative code assumptions such as numeric use, unguarded string methods, array indexing,
+and fixed enum comparisons. `scan` refreshes that analysis. `status` reports monitoring readiness.
 
-Ten observations of this response:
+Dynamic URLs, custom wrappers, and runtime-only configuration can be added manually; discovery is
+deliberately conservative.
 
-```json
-{"products": [{"id": "p1", "price": 20, "status": "active"}]}
+## Monitor behavior
+
+The original advanced workflow remains available:
+
+```bash
+probezen add vendor https://api.vendor.example/v1/products --dependency vendor-example
+probezen sample vendor --count 10 --interval 1
+probezen infer vendor
+probezen approve vendor --all
+probezen check vendor
 ```
 
-can produce required-field, stable-type, non-null, small-enum, and nonempty-array candidates. After approval, this response:
+Observations are evidence, not expectations. `infer` proposes a candidate baseline only after
+sufficient consistent evidence. `approve` writes selected rules to the deterministic,
+commit-friendly `probezen.lock.json`. `check` enforces only approved rules.
 
-```json
-{"products": [{"id": "p1", "price": "20", "status": "ACTIVE"}]}
+Probezen currently detects:
+
+- HTTP status and JSON/content-type changes;
+- required fields, stable types, nullability, and small enums;
+- historically nonempty arrays becoming empty;
+- large latency and response-size changes after at least 10 observations;
+- additive fields as safe by default.
+
+Operational thresholds are intentionally wide: four times the observed maximum, with floors of
+1 second for latency and 1 MiB for payload size. This avoids treating ordinary variance as drift.
+
+## Code impact and severity
+
+For discovered JavaScript/TypeScript dependencies, Probezen connects matching response-field
+changes to likely affected source. Unguarded arithmetic, string methods, array indexing, and enum
+comparisons raise impact. Nearby guards lower confidence. Logging is not treated as a fragile
+assumption.
+
+Each result keeps the compatible `breaking` or `warning` contract classification and adds an
+explainable `level` (`medium` or `high` today), confidence, likely code locations, reason, and
+recommended action. Probezen says “likely affected,” not “definitely broken.”
+
+Exit codes remain stable:
+
+- `0`: healthy (warnings do not fail by default)
+- `1`: approved contract violation, or warning with `--warnings-as-errors`
+- `2`: configuration, network, or Probezen error
+
+`probezen check` now checks all configured endpoints by default. The existing `--all` flag and
+named form remain supported.
+
+## Automation and GitHub Actions
+
+Machine output is versioned and stable:
+
+```bash
+probezen doctor --json
+probezen scan --json --no-write
+probezen status --json
+probezen check --json
 ```
 
-reports `products[].price` as a breaking type change and `products[].status` as a warning for an unfamiliar enum value. `{"products": []}` warns that a historically nonempty array is empty. New fields are not breaking.
-
-Run `probezen check NAME --json` for stable machine output, or `probezen check --all` in CI. Exit codes are `0` healthy, `1` contract violation, and `2` configuration/network/Probezen failure. Warnings alone do not fail a check.
-
-Use `probezen validate` to catch malformed configuration, missing environment variables, or missing approved contracts without making an HTTP request. Teams that want warnings to fail CI can run `probezen check --all --warnings-as-errors`.
-
-## How inference works
-
-After at least three observations, Probezen may propose consistent HTTP status, normalized content type, required paths, stable JSON types, non-null paths, and array cardinality ranges. Small string enums require at least ten scalar values, no more than eight unique members, and low cardinality. Array lengths are summarized with min/max/median; exact lengths are never inferred.
-
-Paths are deterministic and omit indices: `products[].id`. Types are `string`, `integer`, `number`, `boolean`, `object`, `array`, and `null`; booleans are not integers. MIME parameters such as charsets are ignored.
-
-Inference is evidence, not activation. `infer` shows candidate IDs, counts, confidence, and explanations. Only `approve --all` or `approve --candidate cNNN` writes enforced rules.
-
-## Behavioral contracts
-
-`probezen.lock.json` is deterministic, human-readable, versioned, and designed for code review. Required fields, type changes, HTTP status drift, and JSON becoming non-JSON are breaking. Nullability, enum expansion, content-type drift, and an always-nonempty array becoming empty are warnings. Additive fields are accepted.
-
-## CI
+Use the bundled composite action from a tagged release:
 
 ```yaml
-- name: Install Probezen
-  run: uv tool install git+https://github.com/HemVadgama/probezen
-- name: Check external contracts
-  env:
-    VENDOR_TOKEN: ${{ secrets.VENDOR_TOKEN }}
-  run: probezen check --all
+name: Dependency reliability
+on:
+  pull_request:
+  schedule:
+    - cron: "17 6 * * *"
+
+permissions:
+  contents: read
+
+jobs:
+  probezen:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: HemVadgama/probezen@v0.2.0
+        with:
+          warnings-as-errors: "false"
+        env:
+          VENDOR_TOKEN: ${{ secrets.VENDOR_TOKEN }}
 ```
 
-Probezen's own tests use a local HTTP server and never call an external API.
+The action installs Probezen, validates the checked-in baseline, and runs deterministic checks.
+The same commands work in any CI system.
 
-## Authentication and secrets
+## Security and storage
 
-Put environment references—not values—in `probezen.yml`:
+Probezen stores runtime history in `.probezen/history.sqlite3`; it stores response metadata and
+structural path summaries, never raw response bodies. `Authorization`, cookies, API keys, and
+credential-like headers must reference environment variables and are never persisted or printed.
+Common secret fields such as `token`, `password`, and `api_key` retain type evidence but never
+their string values.
+
+Configure additional private fields and accepted noise when adding a check:
+
+```bash
+probezen add vendor https://api.vendor.example/v1/customer \
+  --header-env Authorization=VENDOR_TOKEN \
+  --sensitive-path customer.email \
+  --ignore-path metadata.request_id
+```
+
+Commit `probezen.yml` and `probezen.lock.json`. Do not commit `.probezen/` or `.env` files. Review
+generated configuration before sharing it. Probezen has no telemetry.
+
+## Configuration and compatibility
+
+Version 1 configuration and lock files remain valid. A v0.1 file with only `checks` is loaded
+unchanged; `init` or `scan` adds the optional `dependencies` inventory. Existing `add`, `list`,
+`sample`, `infer`, `approve`, `validate`, and `check --all` workflows continue to work.
 
 ```yaml
 version: 1
+dependencies:
+  stripe:
+    name: Stripe
+    type: api
+    provider: stripe
+    hosts: [api.stripe.com]
 checks:
-  vendor:
-    url: https://api.example.com/v1/items
-    method: GET
+  stripe-prices:
+    dependency: stripe
+    url: https://api.stripe.com/v1/prices
     headers:
       Authorization:
-        env: VENDOR_TOKEN
-    timeout_seconds: 10
+        env: STRIPE_TOKEN
+    sensitive_paths: [customer.email]
+    ignore_paths: [metadata.request_id]
 ```
 
-Environment variables are resolved only for the request and are never logged or persisted. Missing variables fail clearly without exposing values. Do not put literal credentials in configuration. Users are responsible for having permission to query configured APIs.
+## How inference stays quiet
 
-The same secure setup can be created without editing YAML:
-
-```bash
-probezen add vendor https://api.example.com/v1/items \
-  --header-env Authorization=VENDOR_TOKEN \
-  --header Accept=application/json \
-  --query locale=en
-```
-
-Credential-like headers such as `Authorization`, `Cookie`, and `X-API-Key` are rejected by `--header`; use `--header-env` so only the environment variable name is persisted.
-
-## Configuration
-
-Each check supports `url`, `method: GET`, `expected_status`, `headers`, `query`, `timeout_seconds`, `max_response_bytes` (default 2 MiB), and `description`. The repeatable `--header`, `--header-env`, and `--query` flags cover common integrations directly from the CLI. `probezen list` shows each endpoint's observation and approved-rule counts. Requests use explicit timeouts, TLS verification, `Probezen/0.1`, no retries, and no redirect following. Non-JSON endpoints retain HTTP metadata but do not receive structural inference.
-
-## Design philosophy
-
-Availability is not compatibility. Probezen optimizes for low false-positive rates, transparent evidence, explicit human approval, and local reproducibility. It has no telemetry, analytics, AI, or hosted dependency.
+At least three observations are required for structural candidates; small enums and operational
+signals need ten. IDs and highly varied strings are rejected as enums. Exact array lengths and
+narrow numeric ranges are not inferred. Optional new fields do not fail checks. Nothing is
+enforced until explicitly approved.
 
 ## Limitations
 
-v0.1 focuses on JSON GET endpoints and conservative deterministic inference. It cannot determine semantic correctness, cannot know which changes your application truly depends on, and does not replace provider contract tests. History is repository-local and checks run only when invoked. Response-size anomaly inference and user-authored severity promotion are not included yet.
+- Discovery and impact analysis target JavaScript/TypeScript; Probezen itself is a Python CLI.
+- Static analysis is lexical and conservative, not a whole-program type analysis. Aliased fields,
+  runtime-generated URLs, and custom HTTP abstractions may require manual configuration.
+- Active monitoring currently supports JSON GET endpoints.
+- History is local; scheduled monitoring is ordinary CI rather than a hosted scheduler.
+- Probezen detects behavioral compatibility, not semantic correctness or availability SLAs.
 
-## Roadmap
-
-0.2 may add scheduled checks, a first-class GitHub Action, webhook/Slack output, and richer user-defined invariants. Later possibilities include passive observation, OpenAPI comparison, response replay, dependency history, and hosted monitoring.
-
-## Contributing
-
-See [CONTRIBUTING.md](CONTRIBUTING.md). Small changes that improve trustworthiness and reduce noise are especially welcome.
+See [examples/typescript-app](examples/typescript-app) for realistic dependency usage and
+[CONTRIBUTING.md](CONTRIBUTING.md) for development instructions.

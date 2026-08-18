@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "probezen"
-version = "0.1.0"
-description = "Detect behavioral drift in third-party APIs before it breaks your application."
+version = "0.2.0"
+description = "Find external dependencies and detect changes that could break your application."
 readme = "README.md"
 requires-python = ">=3.12"
 license = {text = "MIT"}

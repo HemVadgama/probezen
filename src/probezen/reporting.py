@@ -45,10 +45,19 @@ def print_check(name: str, observation: Observation, findings: list[Finding]) ->
     else:
         console.print("[yellow]! Contract warnings detected[/yellow]\n")
     for finding in findings:
-        style = "red" if finding.severity == "breaking" else "yellow"
-        console.print(f"[{style}]{finding.severity.upper()}[/{style}]\n  {finding.path}")
-        console.print(f"    expected: {display(finding.expected)}")
-        console.print(f"    received: {display(finding.actual)}\n")
+        style = "red" if finding.level in {"critical", "high"} else "yellow"
+        console.print(f"[{style}]{finding.level.upper()}[/{style}] — Dependency behavior changed")
+        console.print(f"\n  {finding.path}\n")
+        console.print(f"  Previously: {display(finding.expected)}")
+        console.print(f"  Now:        {display(finding.actual)}")
+        if finding.affected_code:
+            console.print("\n  Likely affected:")
+            for usage in finding.affected_code:
+                console.print(f"  {usage['path']}:{usage['line']}")
+                console.print(f"    {usage['code']}")
+        console.print(f"\n  Reason: {finding.reason}")
+        console.print(f"  Confidence: {finding.confidence}")
+        console.print(f"  Recommended action: {finding.suggested_action}\n")
     console.print(f"{len(breaking)} breaking changes, {len(warnings)} warnings.")
 
 

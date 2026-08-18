@@ -9,6 +9,7 @@ from .models import Candidate, Observation
 MIN_OBSERVATIONS = 3
 MIN_ENUM_VALUES = 10
 MAX_ENUM_MEMBERS = 8
+MIN_OPERATIONAL_OBSERVATIONS = 10
 
 
 def infer_candidates(observations: list[Observation]) -> list[Candidate]:
@@ -42,6 +43,33 @@ def infer_candidates(observations: list[Observation]) -> list[Candidate]:
                 total,
                 "warning",
                 f"content type {content_type or '(missing)'} in {total}/{total} observations",
+            )
+        )
+    if total >= MIN_OPERATIONAL_OBSERVATIONS:
+        maximum_latency = max(item.latency_ms for item in observations)
+        latency_limit = max(1000.0, maximum_latency * 4)
+        drafts.append(
+            _draft(
+                "latency",
+                "$latency",
+                {"warn_above_ms": round(latency_limit, 1)},
+                total,
+                total,
+                "warning",
+                f"warn above {latency_limit:.1f} ms (4× observed maximum, minimum 1000 ms)",
+            )
+        )
+        maximum_size = max(item.response_bytes for item in observations)
+        size_limit = max(1024 * 1024, maximum_size * 4)
+        drafts.append(
+            _draft(
+                "response_size",
+                "$response-bytes",
+                {"warn_above_bytes": size_limit},
+                total,
+                total,
+                "warning",
+                f"warn above {size_limit} bytes (4× observed maximum, minimum 1 MiB)",
             )
         )
 
