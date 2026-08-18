@@ -49,7 +49,7 @@ jobs:
   probezen:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: HemVadgama/probezen@v1
         with:
           fail-on: high
@@ -173,7 +173,7 @@ jobs:
   probezen:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - id: probezen
         uses: HemVadgama/probezen@v1
         with:

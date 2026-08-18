@@ -35,9 +35,9 @@ git tag -a v1 -m "Probezen GitHub Action v1"
 git push origin v1
 ```
 
-The Marketplace-facing Action uses `v1`; Probezen's Python package keeps its independent `0.x`
-version. Consumers that require an immutable dependency can pin the full release commit SHA.
-Never move `v1` to a breaking Action interface.
+The Marketplace-facing Action uses `v1` and the Python package begins its stable line at `1.0.0`.
+Consumers that require an immutable dependency can pin the full release commit SHA. Never move
+`v1` to a breaking Action interface.
 
 ## Permissions and secrets
 

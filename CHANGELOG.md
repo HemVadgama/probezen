@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.2.1 — 2026-08-17
+## 1.0.0 — 2026-08-17
 
 ### Added
 
@@ -16,8 +16,7 @@
 ### Distribution
 
 - Prepared stable Action major-version usage through `HemVadgama/probezen@v1`.
-- Marketplace publication uses the single public Action tag `v1`; the CLI package version remains
-  independent at `0.2.1`.
+- Marketplace publication uses the public Action tag `v1`, aligned with Python package `1.0.0`.
 
 ## 0.2.0 — 2026-08-17
 

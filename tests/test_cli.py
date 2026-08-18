@@ -111,7 +111,7 @@ def test_complete_cli_workflow(tmp_path, monkeypatch):
 
 def test_version_and_usage_errors(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
-    assert "0.2.1" in runner.invoke(app, ["--version"]).stdout
+    assert "1.0.0" in runner.invoke(app, ["--version"]).stdout
     assert runner.invoke(app, ["check", "--json"]).exit_code == 2
     assert runner.invoke(app, ["check", "--json", "--fail-on", "urgent"]).exit_code == 2
 
