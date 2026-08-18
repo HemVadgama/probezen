@@ -16,7 +16,8 @@
 ### Distribution
 
 - Prepared stable Action major-version usage through `HemVadgama/probezen@v1`.
-- The exact release can be pinned with `@v0.2.1` after publishing the release.
+- Marketplace publication uses the single public Action tag `v1`; the CLI package version remains
+  independent at `0.2.1`.
 
 ## 0.2.0 — 2026-08-17
 

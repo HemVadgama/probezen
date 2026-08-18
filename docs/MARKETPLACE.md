@@ -22,25 +22,22 @@ Before publishing:
 4. Confirm `action.yml` shows GitHub's “Everything looks good” Marketplace validation.
 5. Review the README inputs, outputs, secret handling, permissions, and scheduled example.
 6. Build and test the `probezen` wheel and source distribution.
-7. Create an immutable release tag, currently `v0.2.1`.
-8. Point the compatible major tag `v1` at the same tested commit.
-9. Draft the GitHub release from `v0.2.1`, select **Publish this Action to the GitHub
+7. Create the Action release tag `v1` from the tested commit.
+8. Draft the GitHub release from `v1`, select **Publish this Action to the GitHub
    Marketplace**, and choose the most relevant categories.
-10. Accept the GitHub Marketplace Developer Agreement if GitHub prompts for it, then publish with
+9. Accept the GitHub Marketplace Developer Agreement if GitHub prompts for it, then publish with
     two-factor authentication.
 
 Recommended tag commands after the release commit is on `main`:
 
 ```bash
-git tag -a v0.2.1 -m "Probezen v0.2.1"
-git tag -f v1 v0.2.1
-git push origin v0.2.1
-git push origin v1 --force
+git tag -a v1 -m "Probezen GitHub Action v1"
+git push origin v1
 ```
 
-The immutable version tag supports reproducible pinning. The moving `v1` tag delivers compatible
-security and bug fixes to users who select the stable major channel. Never move `v1` to a breaking
-Action interface.
+The Marketplace-facing Action uses `v1`; Probezen's Python package keeps its independent `0.x`
+version. Consumers that require an immutable dependency can pin the full release commit SHA.
+Never move `v1` to a breaking Action interface.
 
 ## Permissions and secrets
 
