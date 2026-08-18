@@ -98,6 +98,15 @@ def test_config_does_not_contain_resolved_secret(tmp_path, monkeypatch):
     assert "private-value" not in (tmp_path / "probezen.yml").read_text()
 
 
+def test_custom_config_path_is_resolved_from_repository_root(tmp_path, monkeypatch):
+    from probezen.config import config_path, load_config, save_config
+
+    monkeypatch.setenv("PROBEZEN_CONFIG", "config/probezen.yml")
+    save_config(tmp_path, {"version": 1, "checks": {}})
+    assert config_path(tmp_path) == tmp_path / "config" / "probezen.yml"
+    assert load_config(tmp_path) == {"version": 1, "checks": {}}
+
+
 def test_literal_credential_header_in_manual_config_is_rejected():
     endpoint = Endpoint(
         "x",

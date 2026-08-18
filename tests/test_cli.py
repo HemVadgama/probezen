@@ -96,6 +96,10 @@ def test_complete_cli_workflow(tmp_path, monkeypatch):
         strict = runner.invoke(app, ["check", "demo", "--json", "--warnings-as-errors"])
         assert strict.exit_code == 1
         assert json.loads(strict.stdout)["healthy"] is False
+        high_threshold = runner.invoke(app, ["check", "demo", "--json", "--fail-on", "high"])
+        assert high_threshold.exit_code == 0
+        medium_threshold = runner.invoke(app, ["check", "demo", "--json", "--fail-on", "medium"])
+        assert medium_threshold.exit_code == 1
 
         Handler.body = {"products": []}
         empty = runner.invoke(app, ["check", "demo", "--json"])
@@ -107,8 +111,9 @@ def test_complete_cli_workflow(tmp_path, monkeypatch):
 
 def test_version_and_usage_errors(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
-    assert "0.2.0" in runner.invoke(app, ["--version"]).stdout
+    assert "0.2.1" in runner.invoke(app, ["--version"]).stdout
     assert runner.invoke(app, ["check", "--json"]).exit_code == 2
+    assert runner.invoke(app, ["check", "--json", "--fail-on", "urgent"]).exit_code == 2
 
 
 def test_add_rejects_literal_credentials_and_bad_pairs(tmp_path, monkeypatch):

@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.2.1 — 2026-08-17
+
+### Added
+
+- Marketplace-ready `Probezen Dependency Reliability` Action metadata with branding, documented
+  inputs and outputs, a stable Python entry point, and optional JSON artifact uploads.
+- GitHub job summaries and source-linked warning/error annotations.
+- First-run and baseline-approval guidance that does not mislabel setup states as drift.
+- Explicit separation between dependency reachability failures and confirmed behavioral changes.
+- Threshold-aware `probezen check --fail-on LEVEL` behavior for CI.
+- A GitHub-hosted runner workflow covering configured and first-run Action experiences.
+- Custom configuration paths through `PROBEZEN_CONFIG` and the Action `config` input.
+
+### Distribution
+
+- Prepared stable Action major-version usage through `HemVadgama/probezen@v1`.
+- The exact release can be pinned with `@v0.2.1` after publishing the release.
+
 ## 0.2.0 — 2026-08-17
 
 ### Added

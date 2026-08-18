@@ -15,6 +15,7 @@ from . import __version__
 from .check import enforce
 from .config import (
     ConfigError,
+    config_path,
     is_credential_header,
     load_config,
     load_endpoint,
@@ -56,7 +57,7 @@ def main(
 def init() -> None:
     """Discover dependencies and initialize Probezen in this repository."""
     root = Path.cwd()
-    config = root / "probezen.yml"
+    config = config_path(root)
     result = discover(root)
     if not config.exists():
         save_config(
@@ -445,18 +446,28 @@ def approve(
 
 @app.command()
 def check(
-    name: Annotated[str | None, typer.Argument(help="Check name; omit with --all.")] = None,
+    name: Annotated[str | None, typer.Argument(help="Check name; omit to check all.")] = None,
     all_checks: Annotated[bool, typer.Option("--all", help="Run every configured check.")] = False,
     json_output: Annotated[bool, typer.Option("--json", help="Emit stable JSON only.")] = False,
     warnings_as_errors: Annotated[
         bool,
         typer.Option("--warnings-as-errors", help="Exit 1 when warnings are detected."),
     ] = False,
+    fail_on: Annotated[
+        str | None,
+        typer.Option(
+            "--fail-on",
+            help="Lowest impact level that fails: low, medium, high, or critical.",
+        ),
+    ] = None,
 ) -> None:
     """Fetch endpoints and enforce approved behavioral contracts."""
     root = Path.cwd()
     if name is not None and all_checks:
         fail("Provide a check name or --all, but not both", json_output)
+    if fail_on is not None and fail_on not in {"low", "medium", "high", "critical"}:
+        fail("--fail-on must be low, medium, high, or critical", json_output)
+    threshold = "low" if warnings_as_errors else fail_on
     try:
         config = load_config(root)
         names = sorted(config.get("checks", {})) if name is None or all_checks else [str(name)]
@@ -483,12 +494,15 @@ def check(
             ]
             breaking = [finding for finding in findings if finding.severity == "breaking"]
             warnings = [finding for finding in findings if finding.severity == "warning"]
-            failed = bool(breaking) or (warnings_as_errors and bool(warnings))
+            failed = (
+                _fails_threshold(findings, threshold) if threshold is not None else bool(breaking)
+            )
             any_failure = any_failure or failed
             result = {
                 "check": item,
                 "dependency": dependency.id if dependency else endpoint.dependency,
                 "healthy": not failed,
+                "fail_on": threshold or "breaking",
                 "violations": [finding.to_dict() for finding in breaking],
                 "warnings": [finding.to_dict() for finding in warnings],
             }
@@ -597,6 +611,11 @@ def _check_summary(results: list[dict[str, Any]]) -> dict[str, int]:
         for finding in result["violations"] + result["warnings"]:
             summary[finding["level"]] += 1
     return summary
+
+
+def _fails_threshold(findings: list[Any], threshold: str) -> bool:
+    ranks = {"info": 0, "low": 1, "medium": 2, "high": 3, "critical": 4}
+    return any(ranks[finding.level] >= ranks[threshold] for finding in findings)
 
 
 if __name__ == "__main__":

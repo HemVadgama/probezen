@@ -1,0 +1,43 @@
+name: GitHub Action
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  configured-project:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - id: probezen
+        uses: ./
+        with:
+          command: doctor
+          working-directory: tests/fixtures/action-project
+      - name: Verify Action outputs
+        shell: bash
+        env:
+          OUTCOME: ${{ steps.probezen.outputs.outcome }}
+          FINDINGS: ${{ steps.probezen.outputs.findings }}
+        run: |
+          test "$OUTCOME" = "healthy"
+          test "$FINDINGS" = "0"
+
+  first-run-project:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - id: probezen
+        uses: ./
+        with:
+          working-directory: examples/typescript-app
+          fail-on: high
+      - name: Verify first-run guidance
+        shell: bash
+        env:
+          OUTCOME: ${{ steps.probezen.outputs.outcome }}
+        run: test "$OUTCOME" = "setup-required"

@@ -41,7 +41,11 @@ class Endpoint:
 
 
 def config_path(root: Path) -> Path:
-    return root / "probezen.yml"
+    override = os.environ.get("PROBEZEN_CONFIG")
+    if not override:
+        return root / "probezen.yml"
+    path = Path(override)
+    return path if path.is_absolute() else root / path
 
 
 def load_config(root: Path) -> dict[str, Any]:
@@ -62,7 +66,9 @@ def load_config(root: Path) -> dict[str, Any]:
 
 
 def save_config(root: Path, data: dict[str, Any]) -> None:
-    config_path(root).write_text(yaml.safe_dump(data, sort_keys=False))
+    path = config_path(root)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(yaml.safe_dump(data, sort_keys=False))
 
 
 def load_endpoint(root: Path, name: str) -> Endpoint:

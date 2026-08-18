@@ -27,6 +27,39 @@ HIGH — Dependency behavior changed
 
 Probezen is deterministic, local-first, and does not require an account, hosted service, or AI.
 
+## GitHub Action — fastest adoption path
+
+**Catch breaking API changes before your users do.** Add one workflow and Probezen will install
+itself, inspect the repository, publish a concise job summary, and annotate likely affected code.
+
+```yaml
+name: Probezen
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "0 */6 * * *"
+
+permissions:
+  contents: read
+
+jobs:
+  probezen:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: HemVadgama/probezen@v1
+        with:
+          fail-on: high
+```
+
+No Probezen account, GitHub App, write permission, or hosted backend is required. On a repository
+without Probezen configuration, the first run performs safe dependency discovery and provides
+setup guidance without claiming drift. Commit `probezen.yml` and `probezen.lock.json` after
+configuring and approving monitored behavior; subsequent runs enforce that baseline.
+
 ## Install
 
 Python 3.12+ is required. With [uv](https://docs.astral.sh/uv/):
@@ -105,13 +138,13 @@ recommended action. Probezen says “likely affected,” not “definitely broke
 Exit codes remain stable:
 
 - `0`: healthy (warnings do not fail by default)
-- `1`: approved contract violation, or warning with `--warnings-as-errors`
+- `1`: approved contract violation by default, or a finding at/above `--fail-on LEVEL`
 - `2`: configuration, network, or Probezen error
 
 `probezen check` now checks all configured endpoints by default. The existing `--all` flag and
 named form remain supported.
 
-## Automation and GitHub Actions
+## Action reference and automation
 
 Machine output is versioned and stable:
 
@@ -122,14 +155,16 @@ probezen status --json
 probezen check --json
 ```
 
-Use the bundled composite action from a tagged release:
+The Marketplace-ready Action supports pull requests, pushes, and scheduled monitoring:
 
 ```yaml
-name: Dependency reliability
+name: Probezen
 on:
   pull_request:
+  push:
+    branches: [main]
   schedule:
-    - cron: "17 6 * * *"
+    - cron: "0 */6 * * *"
 
 permissions:
   contents: read
@@ -139,15 +174,71 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: HemVadgama/probezen@v0.2.0
+      - id: probezen
+        uses: HemVadgama/probezen@v1
         with:
-          warnings-as-errors: "false"
+          command: check
+          fail-on: high
+          config: probezen.yml
+          upload-results: "true"
         env:
           VENDOR_TOKEN: ${{ secrets.VENDOR_TOKEN }}
 ```
 
-The action installs Probezen, validates the checked-in baseline, and runs deterministic checks.
-The same commands work in any CI system.
+Use `@v1` for compatible v1 updates or pin an exact release tag/SHA for an immutable dependency.
+
+### Inputs
+
+| Input | Default | Purpose |
+| --- | --- | --- |
+| `command` | `check` | Run `check`, `doctor`, `scan`, or `status`. |
+| `fail-on` | `high` | Fail on `low`, `medium`, `high`, or `critical` and above. |
+| `config` | `probezen.yml` | Configuration path relative to the working directory. |
+| `working-directory` | `.` | Application directory in a monorepo. |
+| `upload-results` | `false` | Upload the versioned JSON result as an artifact. |
+| `artifact-name` | `probezen-results` | Artifact name when uploads are enabled. |
+
+### Outputs
+
+| Output | Meaning |
+| --- | --- |
+| `outcome` | `healthy`, `changes-detected`, `setup-required`, `baseline-required`, `monitoring-error`, or `configuration-error`. |
+| `findings` | Number of behavioral change findings. |
+| `highest-severity` | Highest observed finding or dependency-risk level. |
+| `result-file` | Absolute path to the versioned JSON result. |
+
+The Action writes GitHub-native annotations and a Markdown job summary. Findings with impact at or
+above `fail-on` are errors; lower-impact findings are warnings. The JSON result can be consumed by
+later steps or uploaded without granting repository write access.
+
+```yaml
+- id: probezen
+  uses: HemVadgama/probezen@v1
+  with:
+    fail-on: medium
+
+- if: always()
+  run: echo "Probezen outcome: ${{ steps.probezen.outputs.outcome }}"
+```
+
+### CI behavior
+
+| Situation | Outcome | Step result |
+| --- | --- | --- |
+| No changes | `healthy` | Pass |
+| First run needs setup | `setup-required` | Pass with guidance |
+| Baseline needs approval | `baseline-required` | Pass with warning; no drift asserted |
+| Change below `fail-on` | `changes-detected` | Pass with warning annotations |
+| Change at/above `fail-on` | `changes-detected` | Fail with error annotations |
+| Dependency unavailable or response unusable | `monitoring-error` | Operational failure, explicitly not labeled drift |
+| Invalid configuration | `configuration-error` | Configuration failure |
+
+Scheduled workflows use exactly the same deterministic baseline and exit behavior. Keep API
+credentials in GitHub Actions secrets and reference only environment-variable names from
+`probezen.yml`. The Action itself requests no permissions and reads no secrets unless you map them
+into `env` for a configured endpoint.
+
+The same CLI commands and exit statuses work in any CI system.
 
 ## Security and storage
 
