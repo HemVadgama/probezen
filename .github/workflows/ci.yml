@@ -3,6 +3,8 @@ name: CI
 on:
   push:
   pull_request:
+  release:
+    types: [published]
 
 permissions:
   contents: read
@@ -34,8 +36,42 @@ jobs:
         with:
           python-version: "3.12"
           enable-cache: true
+      - name: Verify release tag matches package version
+        if: github.event_name == 'release'
+        shell: bash
+        run: |
+          package_version="$(python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')"
+          test "$GITHUB_REF_NAME" = "v$package_version" || {
+            echo "Release tag $GITHUB_REF_NAME must match package version v$package_version" >&2
+            exit 1
+          }
       - run: uv build
       - run: uv venv .package-venv
       - run: uv pip install --python .package-venv/bin/python dist/*.whl
       - run: .package-venv/bin/probezen --help
       - run: .package-venv/bin/probezen --version
+      - name: Store package distributions
+        if: github.event_name == 'release'
+        uses: actions/upload-artifact@v7
+        with:
+          name: python-package-distributions
+          path: dist/
+
+  publish:
+    name: Publish to PyPI
+    if: github.event_name == 'release' && github.event.action == 'published'
+    needs: [test, package]
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/probezen
+    permissions:
+      id-token: write
+    steps:
+      - name: Download package distributions
+        uses: actions/download-artifact@v8
+        with:
+          name: python-package-distributions
+          path: dist/
+      - name: Publish package distributions to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
