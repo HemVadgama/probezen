@@ -8,8 +8,20 @@ version = "1.0.0"
 description = "Find external dependencies and detect changes that could break your application."
 readme = "README.md"
 requires-python = ">=3.12"
-license = {text = "MIT"}
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [{name = "Probezen contributors"}]
+keywords = ["api", "cli", "contract-testing", "dependency-monitoring", "testing"]
+classifiers = [
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Topic :: Software Development :: Quality Assurance",
+]
 dependencies = [
   "httpx>=0.27,<1",
   "pyyaml>=6,<7",
@@ -22,6 +34,26 @@ dev = ["build>=1.2", "mypy>=1.11", "pytest>=8", "ruff>=0.6", "types-PyYAML>=6"]
 
 [project.scripts]
 probezen = "probezen.cli:app"
+
+[project.urls]
+Homepage = "https://github.com/HemVadgama/probezen"
+Repository = "https://github.com/HemVadgama/probezen"
+Issues = "https://github.com/HemVadgama/probezen/issues"
+Changelog = "https://github.com/HemVadgama/probezen/blob/main/CHANGELOG.md"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/probezen"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "/CHANGELOG.md",
+  "/CONTRIBUTING.md",
+  "/LICENSE",
+  "/README.md",
+  "/pyproject.toml",
+  "/src/probezen",
+  "/tests",
+]
 
 [tool.pytest.ini_options]
 addopts = "-q"

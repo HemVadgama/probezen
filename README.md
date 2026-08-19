@@ -62,14 +62,30 @@ configuring and approving monitored behavior; subsequent runs enforce that basel
 
 ## Install
 
-Python 3.12+ is required. With [uv](https://docs.astral.sh/uv/):
+Python 3.12+ is required. Install Probezen as an isolated CLI application with
+[uv](https://docs.astral.sh/uv/) (preferred):
+
+```bash
+uv tool install probezen
+```
+
+or with [pipx](https://pipx.pypa.io/):
+
+```bash
+pipx install probezen
+```
+
+Then run `probezen --help`. Once the package is published, a regular `pip install probezen` will
+also work, but `uv tool` and `pipx` avoid mixing a CLI application's dependencies with other
+Python environments.
+
+Until the package is published to PyPI, install the current source directly:
 
 ```bash
 uv tool install git+https://github.com/HemVadgama/probezen
-probezen --version
 ```
 
-From a clone, the verified development workflow is:
+Contributors working from a clone can use the verified development workflow:
 
 ```bash
 uv sync --extra dev
