@@ -43,13 +43,6 @@ DRIFT DETECTED
 The API never went down. Its behavior changed.
 ```
 
-The `demo` command is included in the prepared 1.1.0 source but is not in the current PyPI release
-until 1.1.0 is published. Until that release, try it directly from source:
-
-```bash
-uvx --from git+https://github.com/HemVadgama/probezen probezen demo
-```
-
 ## How it works
 
 1. Probezen observes repeated JSON responses without storing their raw bodies.

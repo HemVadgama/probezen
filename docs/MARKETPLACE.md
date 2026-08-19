@@ -37,7 +37,7 @@ Before publishing:
 5. Review the README inputs, outputs, secret handling, permissions, and scheduled example.
 6. Build and test the `probezen` wheel and source distribution.
 7. Confirm the version in `pyproject.toml`, then create its matching immutable release tag such as
-   `v1.0.0`; the release workflow publishes that package to PyPI through Trusted Publishing.
+   `v1.1.0`; the release workflow publishes that package to PyPI through Trusted Publishing.
 8. Keep the compatible Action tag `v1` aligned with the tested v1 release commit.
 9. Draft the GitHub release from `v1`, select **Publish this Action to the GitHub
    Marketplace**, and choose the most relevant categories.
@@ -52,7 +52,7 @@ git push origin v1
 ```
 
 The Marketplace-facing Action uses `v1`, while Python package releases use full semantic versions
-such as `1.0.0`. Consumers that require an immutable Action dependency can pin the full release
+such as `1.1.0`. Consumers that require an immutable Action dependency can pin the full release
 commit SHA. Never move `v1` to a breaking Action interface.
 
 ## Permissions and secrets
