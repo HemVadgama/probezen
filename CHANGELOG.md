@@ -17,6 +17,10 @@
 
 - Prepared stable Action major-version usage through `HemVadgama/probezen@v1`.
 - Marketplace publication uses the public Action tag `v1`, aligned with Python package `1.0.0`.
+- Added standard wheel and source distributions with a `probezen` console entry point and complete
+  PyPI metadata.
+- Added isolated CLI installation through `uv tool install probezen` or `pipx install probezen`.
+- Added credential-free PyPI release publishing through GitHub Actions Trusted Publishing.
 
 ## 0.2.0 — 2026-08-17
 

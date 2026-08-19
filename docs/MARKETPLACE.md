@@ -12,6 +12,20 @@ The repository is intentionally both the Probezen CLI and Action distribution un
 Action installs the package from its immutable checked-out release, so Action behavior and CLI
 behavior cannot silently diverge.
 
+## Installation paths
+
+CLI users can install the [released package from PyPI](https://pypi.org/project/probezen/)
+without cloning the repository:
+
+```bash
+uv tool install probezen
+probezen --help
+```
+
+`pipx install probezen` provides the same isolated CLI experience. The GitHub Action requires no
+separate CLI installation; adding `uses: HemVadgama/probezen@v1` installs and runs the matching
+release inside the workflow.
+
 ## Publication checklist
 
 Before publishing:
@@ -22,10 +36,12 @@ Before publishing:
 4. Confirm `action.yml` shows GitHub's “Everything looks good” Marketplace validation.
 5. Review the README inputs, outputs, secret handling, permissions, and scheduled example.
 6. Build and test the `probezen` wheel and source distribution.
-7. Create the Action release tag `v1` from the tested commit.
-8. Draft the GitHub release from `v1`, select **Publish this Action to the GitHub
+7. Confirm the version in `pyproject.toml`, then create its matching immutable release tag such as
+   `v1.0.0`; the release workflow publishes that package to PyPI through Trusted Publishing.
+8. Keep the compatible Action tag `v1` aligned with the tested v1 release commit.
+9. Draft the GitHub release from `v1`, select **Publish this Action to the GitHub
    Marketplace**, and choose the most relevant categories.
-9. Accept the GitHub Marketplace Developer Agreement if GitHub prompts for it, then publish with
+10. Accept the GitHub Marketplace Developer Agreement if GitHub prompts for it, then publish with
     two-factor authentication.
 
 Recommended tag commands after the release commit is on `main`:
@@ -35,9 +51,9 @@ git tag -a v1 -m "Probezen GitHub Action v1"
 git push origin v1
 ```
 
-The Marketplace-facing Action uses `v1` and the Python package begins its stable line at `1.0.0`.
-Consumers that require an immutable dependency can pin the full release commit SHA. Never move
-`v1` to a breaking Action interface.
+The Marketplace-facing Action uses `v1`, while Python package releases use full semantic versions
+such as `1.0.0`. Consumers that require an immutable Action dependency can pin the full release
+commit SHA. Never move `v1` to a breaking Action interface.
 
 ## Permissions and secrets
 

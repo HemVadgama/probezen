@@ -12,3 +12,14 @@ rotate any credential that may have been exposed. Repository discovery never rea
 the documented example/template variants are inspected, and only URL hostnames are persisted.
 
 Only the latest released version receives security fixes.
+
+Install official releases from the
+[Probezen PyPI project](https://pypi.org/project/probezen/) in an isolated environment:
+
+```bash
+uv tool install probezen
+```
+
+`pipx install probezen` is also supported. Verify that package metadata links back to
+`github.com/HemVadgama/probezen` before installing; source installations should use a reviewed tag
+or commit rather than an untrusted fork.

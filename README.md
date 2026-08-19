@@ -27,7 +27,36 @@ HIGH — Dependency behavior changed
 
 Probezen is deterministic, local-first, and does not require an account, hosted service, or AI.
 
-## GitHub Action — fastest adoption path
+## Install and run
+
+Python 3.12+ is required. Install [Probezen from PyPI](https://pypi.org/project/probezen/) as an
+isolated command-line application with [uv](https://docs.astral.sh/uv/):
+
+```bash
+uv tool install probezen
+probezen --help
+```
+
+Or use [pipx](https://pipx.pypa.io/):
+
+```bash
+pipx install probezen
+probezen --help
+```
+
+That is all the setup the CLI needs—no repository clone, account, service, or API key is
+required. Start in the application you want to inspect:
+
+```bash
+cd your-application
+probezen init
+probezen doctor
+```
+
+`pip install probezen` is also supported, although `uv tool` and `pipx` keep CLI dependencies in
+an isolated environment.
+
+## GitHub Action — no CLI installation required
 
 **Catch breaking API changes before your users do.** Add one workflow and Probezen will install
 itself, inspect the repository, publish a concise job summary, and annotate likely affected code.
@@ -60,26 +89,9 @@ without Probezen configuration, the first run performs safe dependency discovery
 setup guidance without claiming drift. Commit `probezen.yml` and `probezen.lock.json` after
 configuring and approving monitored behavior; subsequent runs enforce that baseline.
 
-## Install
+## Install from source
 
-Python 3.12+ is required. Install Probezen as an isolated CLI application with
-[uv](https://docs.astral.sh/uv/) (preferred):
-
-```bash
-uv tool install probezen
-```
-
-or with [pipx](https://pipx.pypa.io/):
-
-```bash
-pipx install probezen
-```
-
-Then run `probezen --help`. Once the package is published, a regular `pip install probezen` will
-also work, but `uv tool` and `pipx` avoid mixing a CLI application's dependencies with other
-Python environments.
-
-Until the package is published to PyPI, install the current source directly:
+To try the latest code from `main` instead of the released package:
 
 ```bash
 uv tool install git+https://github.com/HemVadgama/probezen
