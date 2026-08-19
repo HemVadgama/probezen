@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "probezen"
-version = "1.0.0"
-description = "Find external dependencies and detect changes that could break your application."
+version = "1.1.0"
+description = "Detect behavior changes in APIs you do not control—even when they still return 200."
 readme = "README.md"
 requires-python = ">=3.12"
 license = "MIT"
@@ -47,7 +47,10 @@ packages = ["src/probezen"]
 [tool.hatch.build.targets.sdist]
 include = [
   "/CHANGELOG.md",
+  "/benchmarks",
   "/CONTRIBUTING.md",
+  "/docs",
+  "/examples",
   "/LICENSE",
   "/README.md",
   "/pyproject.toml",

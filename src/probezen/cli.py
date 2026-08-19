@@ -15,6 +15,7 @@ from . import __version__
 from .check import enforce
 from .config import (
     ConfigError,
+    Endpoint,
     config_path,
     is_credential_header,
     load_config,
@@ -23,18 +24,27 @@ from .config import (
     save_config,
 )
 from .contract import ContractError, load_lock, load_rules, lock_path, save_contract
+from .demo import run_demo
 from .dependencies import Dependency, discover, inventory_mapping
 from .http import RequestError, fetch
 from .impact import explain_impact
 from .infer import infer_candidates
-from .reporting import print_candidates, print_check
-from .storage import StorageError, connect, load_observations, save_observation
+from .models import Observation
+from .reporting import display, finding_label, print_candidates, print_check
+from .storage import (
+    StorageError,
+    clear_observations,
+    connect,
+    load_observations,
+    save_observation,
+)
 
 app = typer.Typer(
     no_args_is_help=True,
-    help="Find external API dependencies and detect changes that could break your application.",
+    help="Detect behavior changes in APIs you do not control—even when they still return 200.",
 )
 console = Console(stderr=True)
+output_console = Console()
 
 
 def version_callback(value: bool) -> None:
@@ -50,7 +60,42 @@ def main(
         typer.Option("--version", callback=version_callback, is_eager=True, help="Show version."),
     ] = None,
 ) -> None:
-    """Keep external dependency changes from silently breaking your application."""
+    """Catch changes in the observed behavior of external APIs."""
+
+
+@app.command()
+def demo() -> None:
+    """See Probezen detect API drift locally—no setup or network required."""
+    result = run_demo()
+    candidates = {(item.rule, item.path): item for item in result.candidates}
+    output_console.print("[bold]Probezen demo[/bold]\n")
+    output_console.print("Learning normal API behavior from deterministic local responses...\n")
+    for rule, path, label in (
+        ("type", "user.id", "integer"),
+        ("enum", "user.plan", '{"pro"}'),
+        ("required", "user.email", "present"),
+    ):
+        if (rule, path) in candidates:
+            output_console.print(f"  [green]✓[/green] {path:<16} {label}")
+    output_console.print(
+        f"\nContract learned and approved from {result.observations} observations."
+    )
+    output_console.print("\nSimulating an upstream response change...\n")
+    output_console.print(f"  HTTP {result.current.status} OK\n")
+    output_console.print("[bold red]DRIFT DETECTED[/bold red]\n")
+    for finding in result.findings:
+        if finding.kind not in {"type_change", "missing_required"}:
+            continue
+        output_console.print(f"  [red]{finding.path}[/red]")
+        output_console.print(f"    expected: {display(finding.expected)}")
+        output_console.print(f"    observed: {display(finding.actual)}")
+        output_console.print(f"    {finding_label(finding.kind)}\n")
+    output_console.print("[bold]The API never went down: it still returned HTTP 200.[/bold]")
+    output_console.print("Its observed behavior changed, and Probezen detected the drift.\n")
+    output_console.print("Try Probezen on a real API:")
+    output_console.print("  probezen init")
+    output_console.print("  probezen add example https://api.example.com/data")
+    output_console.print("  probezen learn example")
 
 
 @app.command()
@@ -95,7 +140,9 @@ def init() -> None:
             typer.echo(f"  {location.path}:{location.line}")
         typer.echo()
     typer.echo(
-        "Probezen configuration created or updated.\n\nNext:\n  probezen doctor\n  probezen scan"
+        "Probezen configuration created or updated.\n\nNext:\n"
+        "  probezen add NAME https://api.example.com/data\n"
+        "  probezen learn NAME"
     )
 
 
@@ -140,10 +187,36 @@ def scan(
 def doctor(
     json_output: Annotated[bool, typer.Option("--json", help="Emit stable JSON only.")] = False,
 ) -> None:
-    """Explain dependency risk before behavioral history exists."""
+    """Validate local setup, credentials, contracts, and dependency risk offline."""
     root = Path.cwd()
     try:
-        load_config(root)
+        config = load_config(root)
+        lock = load_lock(root)
+        names = sorted(config.get("checks", {}))
+        issues: list[dict[str, str]] = []
+        ready = 0
+        for name in names:
+            try:
+                endpoint = load_endpoint(root, name)
+                resolve_headers(endpoint)
+                load_rules(root, name)
+                ready += 1
+            except (ConfigError, ContractError) as exc:
+                issues.append({"check": name, "message": str(exc)})
+        for name in sorted(set(lock["contracts"]) - set(names)):
+            try:
+                load_rules(root, name)
+            except ContractError as exc:
+                issues.append({"check": name, "message": str(exc)})
+            else:
+                issues.append(
+                    {
+                        "check": name,
+                        "message": (
+                            "Contract has no configured endpoint; remove it or add the endpoint"
+                        ),
+                    }
+                )
         result = discover(root)
         summary = {level: 0 for level in ("high", "medium", "low")}
         for dependency in result.dependencies:
@@ -153,32 +226,45 @@ def doctor(
             "dependencies_analyzed": len(result.dependencies),
             "summary": summary,
             "dependencies": [item.to_dict() for item in result.dependencies],
+            "setup": {
+                "version": __version__,
+                "configuration_valid": True,
+                "endpoints_configured": len(names),
+                "endpoints_ready": ready,
+                "approved_contracts": len(lock["contracts"]),
+                "network_requests_made": False,
+            },
+            "issues": issues,
         }
         if json_output:
             typer.echo(json.dumps(payload, sort_keys=True))
+            if issues:
+                raise typer.Exit(2)
             return
-        typer.echo("Probezen Dependency Doctor\n")
-        typer.echo(f"Dependencies analyzed: {len(result.dependencies)}\n")
+        typer.echo("Probezen doctor\n")
+        typer.echo(f"✓ Probezen {__version__}")
+        typer.echo(f"✓ Configuration valid: {config_path(root)}")
+        typer.echo(f"✓ {len(names)} endpoints configured")
+        typer.echo(f"✓ {len(lock['contracts'])} approved contracts readable")
+        if not issues:
+            typer.echo("✓ Required authentication environment variables available")
+        for issue in issues:
+            typer.echo(f"✗ {issue['check']}: {issue['message']}")
+        typer.echo("✓ No live API requests made\n")
+        typer.echo(f"Dependencies analyzed: {len(result.dependencies)}")
         for level in ("high", "medium", "low"):
             typer.echo(f"{level.upper():8} {summary[level]}")
         if not result.dependencies:
-            typer.echo("\nNo supported external dependencies detected.")
-            return
-        highest = min(
-            result.dependencies, key=lambda item: {"high": 0, "medium": 1, "low": 2}[item.risk]
-        )
-        typer.echo(f"\nHighest risk: {highest.name} ({highest.risk.upper()})\n\nWhy:")
-        for reason in highest.risk_reasons:
-            typer.echo(f"  • {reason}")
-        if highest.usages:
-            usage = next((item for item in highest.usages if not item.guarded), highest.usages[0])
-            typer.echo(
-                f"\nPotentially fragile assumption:\n\n{usage.path}:{usage.line}\n  {usage.code}"
+            typer.echo("\nNo supported source dependencies detected.")
+        else:
+            highest = min(
+                result.dependencies,
+                key=lambda item: {"high": 0, "medium": 1, "low": 2}[item.risk],
             )
-            typer.echo(f"\n{usage.field} is {usage.reason}.")
-        typer.echo(
-            "\nSuggested next step:\n  Configure an endpoint with 'probezen add', then sample it."
-        )
+            typer.echo(f"\nHighest dependency risk: {highest.name} ({highest.risk.upper()})")
+        if issues:
+            typer.echo(f"\n{len(issues)} setup issue(s) found.")
+            raise typer.Exit(2)
     except ConfigError as exc:
         fail(str(exc), json_output)
 
@@ -304,7 +390,7 @@ def add_check(
         load_endpoint(root, name)
     except ConfigError as exc:
         fail(str(exc))
-    typer.echo(f"Added check '{name}'")
+    typer.echo(f"Added endpoint '{name}'.\n\nNext:\n  probezen learn {name}")
 
 
 @app.command("list")
@@ -384,23 +470,51 @@ def sample(
     root = Path.cwd()
     try:
         endpoint = load_endpoint(root, name)
-        for index in range(count):
-            observation = fetch(endpoint)
-            save_observation(root, name, observation)
-            suffix = (
-                "JSON structure captured"
-                if observation.is_json
-                else "non-JSON; structural inference skipped"
-            )
-            content_type = observation.content_type or "(missing)"
-            typer.echo(
-                f"[{index + 1}/{count}] {observation.status} {content_type} · "
-                f"{observation.response_bytes} bytes · {suffix}"
-            )
-            if index + 1 < count and interval:
-                time.sleep(interval)
+        _collect_samples(root, endpoint, count, interval)
     except (ConfigError, RequestError, StorageError) as exc:
-        fail(str(exc))
+        fail(f"Could not sample '{name}'.\n\n{exc}\n\nRun 'probezen doctor' to check setup.")
+
+
+@app.command()
+def learn(
+    name: str,
+    count: Annotated[
+        int, typer.Option(min=3, max=100, help="New observations to collect before inference.")
+    ] = 3,
+    interval: Annotated[float, typer.Option(min=0, help="Seconds between observations.")] = 0,
+    approve_all: Annotated[
+        bool, typer.Option("--approve-all", help="Approve every candidate without prompting.")
+    ] = False,
+    no_approve: Annotated[
+        bool, typer.Option("--no-approve", help="Show candidates without approving them.")
+    ] = False,
+) -> None:
+    """Collect evidence, infer a contract, and explicitly approve it."""
+    if approve_all and no_approve:
+        fail("Choose --approve-all or --no-approve, not both")
+    root = Path.cwd()
+    try:
+        endpoint = load_endpoint(root, name)
+        typer.echo(f"Learning normal behavior for '{name}'...\n")
+        _collect_samples(root, endpoint, count, interval)
+        observations = load_observations(root, name)
+        candidates = infer_candidates(observations)
+        print_candidates(name, candidates)
+        if not candidates:
+            fail(f"Not enough consistent evidence for '{name}'. Collect at least 3 observations.")
+        if no_approve:
+            typer.echo(f"Review complete. Approve later with: probezen approve {name} --all")
+            return
+        approved = approve_all or typer.confirm("Approve these candidates as the baseline?")
+        if not approved:
+            typer.echo("No contract changed. Review candidates with 'probezen infer'.")
+            return
+        save_contract(root, name, candidates, sample_count=len(observations))
+        typer.echo(
+            f"\nApproved {len(candidates)} rules for '{name}'.\n\nNext:\n  probezen check {name}"
+        )
+    except (ConfigError, RequestError, StorageError, ContractError) as exc:
+        fail(f"Could not learn '{name}'.\n\n{exc}\n\nRun 'probezen doctor' to check setup.")
 
 
 @app.command()
@@ -438,10 +552,123 @@ def approve(
         unknown = set(candidate or []) - {item.id for item in candidates}
         if unknown:
             fail(f"Unknown candidate IDs: {', '.join(sorted(unknown))}")
-        save_contract(Path.cwd(), name, selected)
-        typer.echo(f"Approved {len(selected)} rules for '{name}'")
+        observations = load_observations(Path.cwd(), name)
+        save_contract(Path.cwd(), name, selected, sample_count=len(observations))
+        typer.echo(
+            f"Approved {len(selected)} rules for '{name}'.\n\nNext:\n  probezen check {name}"
+        )
     except (StorageError, ContractError) as exc:
         fail(str(exc))
+
+
+@app.command()
+def show(
+    name: str,
+    json_output: Annotated[bool, typer.Option("--json", help="Emit stable JSON only.")] = False,
+) -> None:
+    """Show approved rules, unapproved candidates, and supporting evidence."""
+    root = Path.cwd()
+    try:
+        endpoint = load_endpoint(root, name)
+        observations = load_observations(root, name)
+        lock = load_lock(root)
+        contract = lock["contracts"].get(name, {})
+        approved = load_rules(root, name) if name in lock["contracts"] else []
+        inferred = infer_candidates(observations)
+        approved_keys = {_rule_key(item) for item in approved if isinstance(item, dict)}
+        unapproved = [item for item in inferred if _rule_key(item.to_dict()) not in approved_keys]
+        payload = {
+            "schema_version": 1,
+            "check": name,
+            "url": endpoint.url,
+            "observations": len(observations),
+            "learned_from_observations": (
+                contract.get("learned_from_observations", 0) if isinstance(contract, dict) else 0
+            ),
+            "learned_at": contract.get("learned_at") if isinstance(contract, dict) else None,
+            "approved_rules": approved,
+            "unapproved_candidates": [item.to_dict() for item in unapproved],
+        }
+        if json_output:
+            typer.echo(json.dumps(payload, sort_keys=True))
+            return
+        typer.echo(f"Probezen contract · {name}\n")
+        typer.echo(f"Endpoint: {endpoint.url}")
+        typer.echo(f"Evidence: {len(observations)} observations")
+        typer.echo(f"Learned: {payload['learned_at'] or 'unknown (legacy contract)'}")
+        typer.echo(f"Approved rules: {len(approved)}\n")
+        if approved:
+            for rule in approved:
+                typer.echo(
+                    f"  {str(rule.get('rule', '')).upper():12} "
+                    f"{rule.get('path')} = {display(rule.get('expected'))}"
+                )
+                typer.echo(
+                    f"    {rule.get('explanation', 'Approved expectation')} · "
+                    f"{float(rule.get('confidence', 0)):.0%} confidence"
+                )
+        else:
+            typer.echo("  No approved contract yet.")
+        typer.echo(f"\nUnapproved candidates: {len(unapproved)}")
+        if unapproved:
+            typer.echo(f"Review with: probezen infer {name}")
+    except (ConfigError, ContractError, StorageError) as exc:
+        fail(str(exc), json_output)
+
+
+@app.command()
+def update(
+    name: str,
+    count: Annotated[
+        int, typer.Option(min=3, max=100, help="Fresh observations for the replacement baseline.")
+    ] = 10,
+    yes: Annotated[
+        bool, typer.Option("--yes", "-y", help="Confirm the displayed drift noninteractively.")
+    ] = False,
+) -> None:
+    """Review current drift, then explicitly relearn one endpoint's contract."""
+    root = Path.cwd()
+    try:
+        endpoint = load_endpoint(root, name)
+        current = fetch(endpoint)
+        findings = [
+            explain_impact(item, None)
+            for item in enforce(
+                current,
+                load_rules(root, name),
+                endpoint.expected_status,
+                endpoint.ignore_paths,
+            )
+        ]
+        if not findings:
+            typer.echo(f"'{name}' still satisfies its approved contract. Nothing to update.")
+            return
+        print_check(name, current, findings)
+        confirmed = yes or typer.confirm(
+            "Accept this provider change and replace the approved baseline?"
+        )
+        if not confirmed:
+            typer.echo("No contract changed.")
+            return
+        _validate_learnable(endpoint, current)
+        fresh = [current]
+        if count > 1:
+            typer.echo(f"[1/{count}] Reusing the reviewed response as baseline evidence")
+            fresh.extend(_fetch_samples(endpoint, count - 1, 0, progress_offset=1, total=count))
+        clear_observations(root, name)
+        for observation in fresh:
+            save_observation(root, name, observation)
+        observations = load_observations(root, name)
+        candidates = infer_candidates(observations)
+        if not candidates:
+            fail("Fresh responses were not consistent enough to form a replacement contract")
+        save_contract(root, name, candidates, sample_count=len(observations))
+        typer.echo(
+            f"\nUpdated '{name}' from {len(observations)} fresh observations.\n"
+            "Review and commit probezen.lock.json."
+        )
+    except (ConfigError, ContractError, RequestError, StorageError) as exc:
+        fail(f"Could not update '{name}'.\n\n{exc}")
 
 
 @app.command()
@@ -529,7 +756,9 @@ def check(
 
 def fail(message: str, json_output: bool = False) -> None:
     if json_output:
-        typer.echo(json.dumps({"error": message, "healthy": False}, sort_keys=True))
+        typer.echo(
+            json.dumps({"schema_version": 1, "error": message, "healthy": False}, sort_keys=True)
+        )
     else:
         console.print(f"[red]Error:[/red] {message}")
     raise typer.Exit(2)
@@ -548,6 +777,60 @@ def parse_pairs(values: list[str], label: str) -> dict[str, str]:
             fail(f"Duplicate {label} '{name}'")
         parsed[name] = item_value
     return parsed
+
+
+def _collect_samples(root: Path, endpoint: Endpoint, count: int, interval: float) -> None:
+    for observation in _fetch_samples(endpoint, count, interval):
+        save_observation(root, endpoint.name, observation)
+
+
+def _fetch_samples(
+    endpoint: Endpoint,
+    count: int,
+    interval: float,
+    *,
+    progress_offset: int = 0,
+    total: int | None = None,
+) -> list[Observation]:
+    observations = []
+    progress_total = total or count
+    for index in range(count):
+        observation = fetch(endpoint)
+        _validate_learnable(endpoint, observation)
+        observations.append(observation)
+        content_type = observation.content_type or "(missing)"
+        typer.echo(
+            f"[{index + 1 + progress_offset}/{progress_total}] "
+            f"HTTP {observation.status} · {content_type} · "
+            f"{observation.response_bytes} bytes"
+        )
+        if index + 1 < count and interval:
+            time.sleep(interval)
+    return observations
+
+
+def _validate_learnable(endpoint: Endpoint, observation: Observation) -> None:
+    if observation.status != endpoint.expected_status:
+        raise RequestError(
+            f"Endpoint returned HTTP {observation.status} (expected "
+            f"{endpoint.expected_status}).\n\n"
+            "If authentication is required, configure the entire header value through an "
+            "environment variable:\n"
+            f"  probezen add {endpoint.name} URL --header-env Authorization=API_AUTH_HEADER\n\n"
+            "If the new status is intentional, update expected_status in probezen.yml first."
+        )
+    if not observation.is_json:
+        raise RequestError(
+            f"Endpoint returned {observation.content_type or 'a non-JSON response'}. "
+            "Probezen currently learns JSON responses only."
+        )
+
+
+def _rule_key(rule: dict[str, Any]) -> str:
+    return json.dumps(
+        {"rule": rule.get("rule"), "path": rule.get("path"), "expected": rule.get("expected")},
+        sort_keys=True,
+    )
 
 
 def _merge_inventory(root: Path, result: Any) -> None:

@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.1.0 — Unreleased
+
+### Added
+
+- Added an offline `probezen demo` that exercises the real inference and enforcement engine.
+- Added the streamlined `add → learn → check` workflow plus inspectable `show` and explicit
+  `update` commands.
+- Added an honest drift benchmark covering true positives, false-positive resistance, and an
+  explicitly unsupported semantic-change case.
+- Added focused public API, authenticated API, CI, and intentional-update examples.
+
+### Improved
+
+- Reworked `doctor` into an offline setup, contract, and authentication diagnostic while
+  preserving dependency-risk analysis.
+- Improved drift hierarchy, errors, next-step guidance, product language, and adoption documentation.
+- Prevented fields optional within arrays from being inferred as required.
+
 ## 1.0.0 — 2026-08-17
 
 ### Added

@@ -1,0 +1,24 @@
+name: Probezen
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "0 */6 * * *"
+
+permissions:
+  contents: read
+
+jobs:
+  api-drift:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: HemVadgama/probezen@v1
+        with:
+          command: check
+          fail-on: high
+          upload-results: "true"
+        env:
+          API_AUTH_HEADER: ${{ secrets.API_AUTH_HEADER }}

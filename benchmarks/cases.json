@@ -1,0 +1,78 @@
+{
+  "schema_version": 1,
+  "real_incidents": [],
+  "synthetic_cases": [
+    {
+      "id": "required-field-disappears",
+      "classification": "breaking",
+      "description": "Synthetic: a consistently present customer email disappears.",
+      "before": "fixtures/required-field-disappears.before.json",
+      "after": "fixtures/required-field-disappears.after.json",
+      "expected_kinds": ["missing_required"]
+    },
+    {
+      "id": "integer-becomes-string",
+      "classification": "breaking",
+      "description": "Synthetic: a stable integer identifier becomes a string.",
+      "before": "fixtures/integer-becomes-string.before.json",
+      "after": "fixtures/integer-becomes-string.after.json",
+      "expected_kinds": ["type_change"]
+    },
+    {
+      "id": "nested-object-disappears",
+      "classification": "breaking",
+      "description": "Synthetic: a consistently present nested profile object disappears.",
+      "before": "fixtures/nested-object-disappears.before.json",
+      "after": "fixtures/nested-object-disappears.after.json",
+      "expected_kinds": ["missing_required"]
+    },
+    {
+      "id": "new-enum-value",
+      "classification": "warning",
+      "description": "Synthetic: a small stable status set gains an unapproved value.",
+      "before": "fixtures/new-enum-value.before.json",
+      "after": "fixtures/new-enum-value.after.json",
+      "expected_kinds": ["enum_expansion"]
+    },
+    {
+      "id": "nonempty-array-becomes-empty",
+      "classification": "warning",
+      "description": "Synthetic: a historically nonempty result array becomes empty.",
+      "before": "fixtures/nonempty-array-becomes-empty.before.json",
+      "after": "fixtures/nonempty-array-becomes-empty.after.json",
+      "expected_kinds": ["empty_array"]
+    },
+    {
+      "id": "optional-array-field",
+      "classification": "stable",
+      "description": "Synthetic: an optional field appears on only some array members.",
+      "before": "fixtures/optional-array-field.before.json",
+      "after": "fixtures/optional-array-field.after.json",
+      "expected_kinds": []
+    },
+    {
+      "id": "changing-values",
+      "classification": "stable",
+      "description": "Synthetic: stable types with naturally changing values remain valid.",
+      "before": "fixtures/changing-values.before.json",
+      "after": "fixtures/changing-values.after.json",
+      "expected_kinds": []
+    },
+    {
+      "id": "variable-array-length",
+      "classification": "stable",
+      "description": "Synthetic: an array observed empty and nonempty may be empty again.",
+      "before": "fixtures/variable-array-length.before.json",
+      "after": "fixtures/variable-array-length.after.json",
+      "expected_kinds": []
+    },
+    {
+      "id": "same-type-semantic-change",
+      "classification": "unsupported",
+      "description": "Synthetic: a same-type price change may be meaningful but is not contract drift.",
+      "before": "fixtures/same-type-semantic-change.before.json",
+      "after": "fixtures/same-type-semantic-change.after.json",
+      "expected_kinds": []
+    }
+  ]
+}

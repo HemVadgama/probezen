@@ -13,8 +13,8 @@ ROOT = Path(__file__).parents[1]
 
 def test_marketplace_metadata_has_branding_inputs_outputs_and_stable_runner():
     metadata = yaml.safe_load((ROOT / "action.yml").read_text())
-    assert metadata["name"] == "Probezen Dependency Reliability"
-    assert metadata["description"].startswith("Catch breaking API changes")
+    assert metadata["name"] == "Probezen API Drift Check"
+    assert metadata["description"].startswith("Catch when an API changes without going down")
     assert metadata["branding"] == {"icon": "shield", "color": "purple"}
     assert set(metadata["inputs"]) == {
         "command",

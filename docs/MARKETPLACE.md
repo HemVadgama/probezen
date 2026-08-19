@@ -1,12 +1,12 @@
 # GitHub Marketplace release guide
 
-Probezen ships one root `action.yml` named **Probezen Dependency Reliability**. Its Marketplace
-positioning is:
+Probezen ships one root `action.yml` named **Probezen API Drift Check**. Its Marketplace
+listing copy is:
 
-> **Catch breaking API changes before your users do.**
+> **Catch when an API changes without going down.**
 
-> Probezen watches the APIs and external services your application depends on, detects meaningful
-> behavioral changes, and shows you where your code may be affected.
+> Probezen checks the observed behavior of external APIs and reports missing fields, changed types,
+> unexpected values, and the application code that may be affected.
 
 The repository is intentionally both the Probezen CLI and Action distribution unit: the composite
 Action installs the package from its immutable checked-out release, so Action behavior and CLI

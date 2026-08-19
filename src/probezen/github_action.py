@@ -309,15 +309,16 @@ def render_summary(
             + "yet.\n\n"
             + _dependency_summary(payload)
             + "\n"
-            + "Run `probezen init`, configure endpoints with `probezen add`, collect observations, "
-            + "approve a baseline, and commit `probezen.yml` plus `probezen.lock.json`.\n"
+            + "Run `probezen init`, configure endpoints with `probezen add`, learn and approve a "
+            + "baseline with `probezen learn`, then commit `probezen.yml` plus "
+            + "`probezen.lock.json`.\n"
         )
     if outcome == "baseline-required":
         return (
             heading
             + "⚠️ A monitored endpoint does not have an approved baseline.\n\n"
-            + "Collect observations with `probezen sample`, review `probezen infer`, then approve "
-            + "and commit the baseline. No behavioral drift was asserted.\n"
+            + "Run `probezen learn NAME`, review and approve the proposed invariants, then commit "
+            + "the baseline. No behavioral drift was asserted.\n"
         )
     if outcome in {"monitoring-error", "configuration-error"}:
         context = (

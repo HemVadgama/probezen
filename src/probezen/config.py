@@ -72,9 +72,14 @@ def save_config(root: Path, data: dict[str, Any]) -> None:
 
 
 def load_endpoint(root: Path, name: str) -> Endpoint:
-    raw = load_config(root).get("checks", {}).get(name)
+    checks = load_config(root).get("checks", {})
+    raw = checks.get(name)
     if not isinstance(raw, dict):
-        raise ConfigError(f"Unknown check '{name}'")
+        available = ", ".join(sorted(checks)) or "none"
+        raise ConfigError(
+            f"Unknown endpoint '{name}'. Configured endpoints: {available}. "
+            "Run 'probezen list' to inspect them."
+        )
     url = raw.get("url")
     parsed_url = urlparse(url) if isinstance(url, str) else None
     if (

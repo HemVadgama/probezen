@@ -4,7 +4,7 @@ from collections import Counter, defaultdict
 from statistics import median
 from typing import Any
 
-from .models import Candidate, Observation
+from .models import Candidate, Observation, PathMetric
 
 MIN_OBSERVATIONS = 3
 MIN_ENUM_VALUES = 10
@@ -73,14 +73,17 @@ def infer_candidates(observations: list[Observation]) -> list[Candidate]:
             )
         )
 
-    by_path: dict[str, list[Any]] = defaultdict(list)
+    by_path: dict[str, list[tuple[Observation, PathMetric]]] = defaultdict(list)
     for observation in observations:
         for metric in observation.paths:
-            by_path[metric.path].append(metric)
+            by_path[metric.path].append((observation, metric))
     for path in sorted(by_path):
-        metrics = by_path[path]
+        entries = by_path[path]
+        metrics = [metric for _, metric in entries]
         present = len(metrics)
-        if present == total:
+        if present == total and all(
+            _present_for_every_array_item(observation, metric) for observation, metric in entries
+        ):
             drafts.append(
                 _draft(
                     "required",
@@ -162,6 +165,17 @@ def infer_candidates(observations: list[Observation]) -> list[Candidate]:
             )
     ordered = sorted(drafts, key=lambda item: (item["path"], item["rule"]))
     return [Candidate(id=f"c{index:03d}", **draft) for index, draft in enumerate(ordered, 1)]
+
+
+def _present_for_every_array_item(observation: Observation, metric: PathMetric) -> bool:
+    """Avoid marking a field required when it is optional within an array of objects."""
+    if "[]" not in metric.path or metric.path.endswith("[]"):
+        return True
+    array_path = metric.path.rsplit("[]", 1)[0] + "[]"
+    parent = next((item for item in observation.paths if item.path == array_path), None)
+    if parent is None or parent.array_length is None:
+        return True
+    return metric.occurrences >= parent.array_length
 
 
 def _draft(

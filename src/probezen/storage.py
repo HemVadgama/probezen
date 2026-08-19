@@ -138,3 +138,21 @@ def load_observations(root: Path, check_name: str) -> list[Observation]:
                 )
             )
         return result
+
+
+def clear_observations(root: Path, check_name: str) -> None:
+    """Remove one endpoint's local evidence before an explicitly approved relearn."""
+    try:
+        with connect(root) as db:
+            row = db.execute("SELECT id FROM checks WHERE name = ?", (check_name,)).fetchone()
+            if row is None:
+                return
+            check_id = row["id"]
+            db.execute(
+                "DELETE FROM path_observations WHERE observation_id IN "
+                "(SELECT id FROM observations WHERE check_id = ?)",
+                (check_id,),
+            )
+            db.execute("DELETE FROM observations WHERE check_id = ?", (check_id,))
+    except sqlite3.Error as exc:
+        raise StorageError(f"Could not clear observations for '{check_name}': {exc}") from exc

@@ -21,11 +21,12 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           enable-cache: true
-      - run: uv sync --extra dev
-      - run: uv run ruff format --check .
-      - run: uv run ruff check .
-      - run: uv run mypy src
-      - run: uv run pytest
+      - run: uv sync --extra dev --no-editable
+      - run: uv run --no-sync ruff format --check .
+      - run: uv run --no-sync ruff check .
+      - run: uv run --no-sync mypy src
+      - run: uv run --no-sync pytest
+      - run: uv run --no-sync python -m probezen.benchmark
       - run: uv build
 
   package:

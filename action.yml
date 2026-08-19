@@ -1,6 +1,6 @@
-name: Probezen Dependency Reliability
+name: Probezen API Drift Check
 author: Hem Vadgama
-description: Catch breaking API changes before your users do and find the application code at risk.
+description: Catch when an API changes without going down and show the response behavior that drifted.
 
 branding:
   icon: shield

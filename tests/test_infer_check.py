@@ -100,3 +100,14 @@ def test_ignore_path_globs_suppress_only_matching_findings():
     findings = enforce(current, rules_for(baseline), ignore_paths=("profile.email",))
     assert not any(item.path == "profile.email" for item in findings)
     assert any(item.path == "profile.age" for item in findings)
+
+
+def test_optional_field_within_array_is_not_inferred_as_required():
+    observations = [
+        observation({"items": [{"id": index, "label": "present"}, {"id": index + 1}]})
+        for index in range(3)
+    ]
+    candidates = infer_candidates(observations)
+    assert not any(item.rule == "required" and item.path == "items[].label" for item in candidates)
+    findings = enforce(observation({"items": [{"id": 10}, {"id": 11}]}), rules_for(observations))
+    assert not any(item.path == "items[].label" for item in findings)
