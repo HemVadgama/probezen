@@ -26,6 +26,12 @@ from .config import (
 from .contract import ContractError, load_lock, load_rules, lock_path, save_contract
 from .demo import run_demo
 from .dependencies import Dependency, discover, inventory_mapping
+from .discovery import (
+    RepositoryDiscovery,
+    discover_repository,
+    starter_checks,
+    starter_dependencies,
+)
 from .http import RequestError, fetch
 from .impact import explain_impact
 from .infer import infer_candidates
@@ -181,6 +187,119 @@ def scan(
             typer.echo("\nUpdated dependency inventory in probezen.yml.")
     except ConfigError as exc:
         fail(str(exc), json_output)
+
+
+@app.command("discover")
+def discover_command(
+    json_output: Annotated[bool, typer.Option("--json", help="Emit stable JSON only.")] = False,
+    write: Annotated[
+        bool, typer.Option("--write", help="Create a starter configuration from safe GET calls.")
+    ] = False,
+    verbose: Annotated[
+        bool, typer.Option("--verbose", "-v", help="Show evidence and unresolved calls.")
+    ] = False,
+) -> None:
+    """Find supported third-party HTTP calls without executing them."""
+    root = Path.cwd()
+    result = discover_repository(root)
+    written: list[str] = []
+    write_error: str | None = None
+    if write:
+        config = config_path(root)
+        if config.exists():
+            write_error = f"Configuration already exists at {config}; no files were changed."
+        else:
+            checks = starter_checks(result)
+            if checks:
+                save_config(
+                    root,
+                    {
+                        "version": 1,
+                        "dependencies": starter_dependencies(result),
+                        "checks": checks,
+                    },
+                )
+                written = sorted(checks)
+            else:
+                write_error = "No sufficiently confident, safe GET calls are available to write."
+
+    if json_output:
+        payload = result.to_dict()
+        payload["write"] = {
+            "requested": write,
+            "configuration_written": bool(written),
+            "checks": written,
+            "error": write_error,
+        }
+        typer.echo(json.dumps(payload, sort_keys=True))
+        if write_error:
+            raise typer.Exit(2)
+        return
+
+    _print_discovery(result, verbose)
+    if written:
+        typer.echo(
+            f"\nCreated probezen.yml with {len(written)} safe GET check(s).\n"
+            "Review the generated URLs, then run `probezen learn NAME`."
+        )
+    elif write_error:
+        fail(write_error)
+    elif any(call.monitoring_eligible for item in result.integrations for call in item.calls):
+        typer.echo("\nRun `probezen discover --write` to create a starter configuration.")
+
+
+def _print_discovery(result: RepositoryDiscovery, verbose: bool) -> None:
+    call_count = sum(len(item.calls) for item in result.integrations)
+    if not call_count:
+        typer.echo("No supported third-party API integrations were confidently discovered.\n")
+        typer.echo(
+            "Probezen currently detects direct fetch calls and direct/static-instance Axios "
+            "calls in JavaScript and TypeScript. You can configure an endpoint manually with "
+            "`probezen init` followed by `probezen add NAME URL`."
+        )
+        if result.unresolved:
+            typer.echo(
+                f"\n{len(result.unresolved)} external call candidate(s) could not be resolved."
+            )
+            if not verbose:
+                typer.echo("Run with `--verbose` for details.")
+    else:
+        typer.echo("Discovered third-party API integrations\n")
+        for integration in result.integrations:
+            typer.echo(f"{integration.service} · {integration.host}\n")
+            for call in integration.calls:
+                method = call.method or "UNKNOWN"
+                endpoint = call.endpoint or "(unresolved path)"
+                typer.echo(f"  {method} {endpoint}")
+                typer.echo(f"  {call.path}:{call.line}")
+                typer.echo(f"  Confidence: {call.confidence}")
+                if not call.monitoring_eligible:
+                    typer.echo(f"  Monitoring: not eligible ({call.monitoring_reason})")
+                if call.assumptions:
+                    typer.echo("  Consumer assumptions:")
+                    for assumption in call.assumptions:
+                        typer.echo(f"    {assumption.field} · {assumption.reason}")
+                        typer.echo(f"      {assumption.path}:{assumption.line}")
+                if verbose:
+                    typer.echo(f"  Evidence: {call.client} · {call.evidence}")
+                typer.echo()
+        candidates = sum(
+            call.monitoring_eligible for item in result.integrations for call in item.calls
+        )
+        typer.echo(
+            f"Found {call_count} call(s) across {len(result.integrations)} integration(s); "
+            f"{candidates} monitoring candidate(s)."
+        )
+        if result.unresolved:
+            typer.echo(f"{len(result.unresolved)} additional call(s) could not be fully resolved.")
+            if not verbose:
+                typer.echo("Run with `--verbose` for details.")
+    if verbose and result.unresolved:
+        typer.echo("\nUnresolved calls")
+        for item in result.unresolved:
+            typer.echo(f"  {item.path}:{item.line} · {item.client} · {item.reason}")
+            if item.expression:
+                typer.echo(f"    {item.expression}")
 
 
 @app.command()

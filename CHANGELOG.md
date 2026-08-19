@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.2.0 — 2026-08-19
+
+### Added
+
+- Add conservative, static `probezen discover` support for JavaScript/TypeScript `fetch` and
+  Axios calls, deterministic JSON output, consumer assumptions, and safe starter configuration
+  generation with `--write`.
+
+### Security
+
+- Discovery never executes application requests and excludes secrets, URL query values, and
+  embedded URL credentials from output and generated configuration.
+
 ## 1.1.0 — 2026-08-18
 
 ### Added

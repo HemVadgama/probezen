@@ -78,6 +78,22 @@ pipx install probezen
 From the application that depends on the API:
 
 ```bash
+probezen discover
+probezen discover --write
+probezen learn api-github-com-users-octocat
+```
+
+`discover` statically inspects supported JavaScript and TypeScript call sites and reports the
+third-party host, method, normalized path, source location, confidence, safe-monitoring status,
+and consumer assumptions Probezen can associate confidently. It never executes a discovered
+request. `--write` explicitly creates a human-editable `probezen.yml` containing only fully
+resolved GET candidates, never secrets, and refuses to overwrite an existing configuration. In
+this example, the first command reports supported calls and assumptions; the second creates the
+starter check named on the third line.
+
+If discovery cannot resolve the endpoint safely, configure it through the normal manual workflow:
+
+```bash
 probezen init
 probezen add github https://api.github.com/users/octocat
 probezen learn github
@@ -185,6 +201,7 @@ For machine consumers, `probezen check --json` emits a versioned, deterministic 
 `schema_version`, health, threshold, violations, warnings, and a multi-endpoint summary. See the
 [stable JSON reference](docs/check-json.md) and
 [complete CI example](examples/ci/probezen.yml).
+`probezen discover --json` has a separate [stable JSON reference](docs/discover-json.md).
 
 ## What gets learned
 
@@ -226,6 +243,9 @@ affected JavaScript/TypeScript code when discoverable, and the suggested action.
 
 - Active monitoring currently supports HTTP GET endpoints and JSON response inference.
 - Discovery and code-impact analysis currently target JavaScript and TypeScript.
+- Discovery is conservative and incomplete by design. V1 recognizes direct `fetch`, direct Axios
+  method calls, and Axios instances with a static `baseURL`; it does not trace arbitrary wrappers,
+  dependency injection, generated SDKs, or deeply dynamic URLs.
 - Probezen cannot infer semantic business correctness; `19.99 → 99.99` is invisible if the type
   and approved invariants remain valid.
 - It focuses on observed response drift; it does not provide broad request generation, complete
